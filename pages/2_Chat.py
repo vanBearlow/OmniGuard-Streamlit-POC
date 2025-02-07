@@ -3,7 +3,7 @@ import streamlit as st
 import logging
 from dotenv import load_dotenv
 from prompts import CMS_configuration, assistant_system_prompt
-from database import save_conversation, init_db
+from database import save_conversation, init_db, get_dataset_stats
 from CMS import CMS, process_CMS_result, assess_rule_violation
 
 init_db()
@@ -64,6 +64,7 @@ def setup_sidebar():
         st.session_state.base_conversation_id = str(uuid.uuid4())
         st.session_state.turn_number = 1
         st.session_state.conversation_id = generate_conversation_id(st.session_state.turn_number)
+        st.session_state.rejection_count = 0  # Reset rejection counter
         update_conversation_context()
         st.rerun()
 
@@ -74,39 +75,19 @@ def setup_sidebar():
         with st.sidebar.form("report_violation_form"):
             st.write("Report Rule Violation")
             sources = st.multiselect("Source of the rule violation:", options=["User", "Assistant"])
-            st.markdown("---")
-            st.write("You will be publicly credited for your contribution.")
-            contributor_name = st.text_input("Name:")
-            x_handle = st.text_input("X:")
-            discord_handle = st.text_input("Discord:")
-            linkedin_url = st.text_input("LinkedIn Profile URL:")
 
             submitted = st.form_submit_button("Submit Report")
             if submitted:
-                if not (contributor_name.strip() or x_handle.strip() or discord_handle.strip() or linkedin_url.strip()):
-                    st.error("At least one identifier is required!")
-                else:
-                    parts = []
-                    if contributor_name.strip():
-                        parts.append(contributor_name.strip())
-                    if x_handle.strip():
-                        parts.append(f"https://x.com/{x_handle.strip()}")
-                    if discord_handle.strip():
-                        parts.append(f"Discord: {discord_handle.strip()}")
-                    if linkedin_url.strip():
-                        parts.append(linkedin_url.strip())
-                    contributor_info = ", ".join(parts)
-                    conversation_context = st.session_state.conversation_context
-                    report_info = f"Configuration: {st.session_state.CMS_configuration}. Sources: {', '.join(sources)}. Contributor: {contributor_info}"
-                    violation_result = assess_rule_violation(report_info, conversation_context)
-                    st.write("Violation assessment result:", violation_result)
-                    if st.session_state.get("contribute_training_data", False):
-                        save_conversation(
-                            st.session_state.conversation_id,
-                            user_violates_rules=violation_result.get("input_violates_rules", False),
-                            assistant_violates_rules=violation_result.get("output_violates_rules", False),
-                            contributor=contributor_info
-                        )
+                conversation_context = st.session_state.conversation_context
+                report_info = f"Configuration: {st.session_state.CMS_configuration}. Sources: {', '.join(sources)}"
+                violation_result = assess_rule_violation(report_info, conversation_context)
+                st.write("Violation assessment result:", violation_result)
+                if st.session_state.get("contribute_training_data", False):
+                    save_conversation(
+                        st.session_state.conversation_id,
+                        user_violates_rules=violation_result.get("input_violates_rules", False),
+                        assistant_violates_rules=violation_result.get("output_violates_rules", False)
+                    )
 
 def display_messages():
     for msg in st.session_state.messages:
@@ -134,7 +115,6 @@ def process_user_message(user_input):
     last_msg = st.session_state.messages[-1] if st.session_state.messages else {}
     context = f"{last_msg['role']}: {last_msg['content']}" if last_msg else ""
     process_CMS_result(CMS_response, user_input, context)
-
 def main():
     init_session_state()
     if st.session_state.get("contribute_training_data") is False and not st.session_state.get("api_key"):
@@ -142,7 +122,27 @@ def main():
         st.stop()
     setup_sidebar()
     display_messages()
-    user_input = st.chat_input("Type your message here", max_chars=20000)
+    
+    # Display rejection stats
+    stats = get_dataset_stats()
+    st.sidebar.markdown("---")
+    st.sidebar.markdown("### Violation Statistics")
+    
+    # Display auto-detected and human-verified violations
+    st.sidebar.markdown(f"""
+    | Role | Auto-Detected | Human-Verified | Total |
+    |------|--------------|----------------|-------|
+    | User | `{stats['user_violations']}` | `{stats['human_verified_user_violations']}` | `{stats['total_user_violations']}` |
+    | Assistant | `{stats['assistant_violations']}` | `{stats['human_verified_assistant_violations']}` | `{stats['total_assistant_violations']}` |
+    """)
+    
+    # Display verification queue status
+    if stats['needed_human_verification'] > 0:
+        st.sidebar.warning(f"🔍 {stats['needed_human_verification']} conversations need human verification")
+
+
+
+    user_input = st.chat_input("Type your message here", max_chars=20000, key="chat_input")
     if user_input:
         process_user_message(user_input)
 

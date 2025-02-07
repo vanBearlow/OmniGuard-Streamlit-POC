@@ -22,7 +22,6 @@ def main():
     - **{stats['total_sets']:,}** test cases analyzed
     - **{stats['user_violations']:,}** potential user violations identified
     - **{stats['assistant_violations']:,}** assistant safety improvements made
-    - **{stats['total_contributors']:,}** dedicated contributors like you
     """)
 
     st.markdown("---")

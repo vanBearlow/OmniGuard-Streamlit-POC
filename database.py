@@ -1,3 +1,7 @@
+# WARNING: This is a PUBLIC database file that will be downloaded by users.
+# DO NOT store any sensitive information, credentials, or secrets in this file.
+# All sensitive data should be stored in secrets.toml or environment variables.
+
 import os
 import psycopg2
 import json
@@ -50,9 +54,22 @@ def init_db():
             api_keys JSONB DEFAULT '{}',
             social_handles JSONB DEFAULT '{}',
             created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-            last_login TIMESTAMP WITH TIME ZONE
+            last_login TIMESTAMP WITH TIME ZONE,
+            last_updated TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
         )'''
     )
+    
+    # Add last_updated column if it doesn't exist
+    cur.execute("""
+        SELECT column_name
+        FROM information_schema.columns
+        WHERE table_name = 'users' AND column_name = 'last_updated'
+    """)
+    if not cur.fetchone():
+        cur.execute("""
+            ALTER TABLE users
+            ADD COLUMN last_updated TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+        """)
     
     # Create conversations table
     cur.execute(
@@ -112,6 +129,8 @@ def init_db():
         cur.execute("ALTER TABLE conversations ADD COLUMN total_cost NUMERIC(10,4)")
     if "latency_ms" not in columns:
         cur.execute("ALTER TABLE conversations ADD COLUMN latency_ms INTEGER")
+    if "needed_human_verification" not in columns:
+        cur.execute("ALTER TABLE conversations ADD COLUMN needed_human_verification BOOLEAN DEFAULT FALSE")
     
     conn.commit()
     conn.close()
@@ -124,7 +143,8 @@ def get_all_conversations(export_format="jsonl"):
                assistant_output, user_violates_rules, assistant_violates_rules,
                model_name, reasoning_effort, contributor, created_at,
                prompt_tokens, completion_tokens, total_tokens,
-               input_cost, output_cost, total_cost, latency_ms
+               input_cost, output_cost, total_cost, latency_ms,
+               needed_human_verification
         FROM conversations
     """)
     rows = cur.fetchall()
@@ -149,7 +169,8 @@ def get_all_conversations(export_format="jsonl"):
                 "input_cost": float(row[13]) if row[13] else None,
                 "output_cost": float(row[14]) if row[14] else None,
                 "total_cost": float(row[15]) if row[15] else None,
-                "latency_ms": row[16]
+                "latency_ms": row[16],
+                "needed_human_verification": bool(row[17]) if row[17] is not None else False
             })
         return "\n".join(json.dumps(conv) for conv in results)
     else:
@@ -160,7 +181,7 @@ def save_conversation(conversation_id, user_violates_rules=False,
                      cms_raw_response=None, assistant_output=None, model_name=None,
                      reasoning_effort=None, prompt_tokens=None, completion_tokens=None,
                      total_tokens=None, input_cost=None, output_cost=None, total_cost=None,
-                     latency_ms=None):
+                     latency_ms=None, needed_human_verification=False):
     conn = get_connection()
     cur = conn.cursor()
     cur.execute(
@@ -170,9 +191,10 @@ def save_conversation(conversation_id, user_violates_rules=False,
              user_violates_rules, assistant_violates_rules,
              model_name, reasoning_effort, contributor,
              prompt_tokens, completion_tokens, total_tokens,
-             input_cost, output_cost, total_cost, latency_ms)
+             input_cost, output_cost, total_cost, latency_ms,
+             needed_human_verification)
         VALUES
-            (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         ON CONFLICT (conversation_id) DO UPDATE
             SET cms_evaluation_input = EXCLUDED.cms_evaluation_input,
                 cms_raw_response = EXCLUDED.cms_raw_response,
@@ -188,7 +210,8 @@ def save_conversation(conversation_id, user_violates_rules=False,
                 input_cost = EXCLUDED.input_cost,
                 output_cost = EXCLUDED.output_cost,
                 total_cost = EXCLUDED.total_cost,
-                latency_ms = EXCLUDED.latency_ms
+                latency_ms = EXCLUDED.latency_ms,
+                needed_human_verification = EXCLUDED.needed_human_verification
         """,
         (
             conversation_id,
@@ -213,7 +236,8 @@ def save_conversation(conversation_id, user_violates_rules=False,
             input_cost,
             output_cost,
             total_cost,
-            latency_ms
+            latency_ms,
+            needed_human_verification
         )
     )
     conn.commit()
@@ -232,7 +256,8 @@ def get_conversation(conversation_id):
                assistant_output, user_violates_rules, assistant_violates_rules,
                model_name, reasoning_effort, contributor, created_at,
                prompt_tokens, completion_tokens, total_tokens,
-               input_cost, output_cost, total_cost, latency_ms
+               input_cost, output_cost, total_cost, latency_ms,
+               needed_human_verification
         FROM conversations
         WHERE conversation_id = %s
         """,
@@ -258,7 +283,8 @@ def get_conversation(conversation_id):
             "input_cost": float(result[13]) if result[13] else None,
             "output_cost": float(result[14]) if result[14] else None,
             "total_cost": float(result[15]) if result[15] else None,
-            "latency_ms": result[16]
+            "latency_ms": result[16],
+            "needed_human_verification": bool(result[17]) if result[17] is not None else False
         }
     return None
 
@@ -294,41 +320,61 @@ def get_dataset_stats():
     # Get total violations and usage statistics
     cur.execute("""
         SELECT
-            SUM(CASE WHEN user_violates_rules = 1 THEN 1 ELSE 0 END) as user_violations,
-            SUM(CASE WHEN assistant_violates_rules = 1 THEN 1 ELSE 0 END) as assistant_violations,
+            -- Auto-detected violations (not human verified)
+            SUM(CASE WHEN user_violates_rules = 1 AND needed_human_verification = FALSE THEN 1 ELSE 0 END) as auto_user_violations,
+            SUM(CASE WHEN assistant_violates_rules = 1 AND needed_human_verification = FALSE THEN 1 ELSE 0 END) as auto_assistant_violations,
+            -- Human-verified violations
+            SUM(CASE WHEN user_violates_rules = 1 AND needed_human_verification = TRUE THEN 1 ELSE 0 END) as human_verified_user_violations,
+            SUM(CASE WHEN assistant_violates_rules = 1 AND needed_human_verification = TRUE THEN 1 ELSE 0 END) as human_verified_assistant_violations,
+            -- Usage statistics
             SUM(prompt_tokens) as total_prompt_tokens,
             SUM(completion_tokens) as total_completion_tokens,
             SUM(total_tokens) as total_all_tokens,
             SUM(input_cost) as total_input_cost,
             SUM(output_cost) as total_output_cost,
             SUM(total_cost) as total_all_cost,
-            AVG(latency_ms) as avg_latency
+            AVG(latency_ms) as avg_latency,
+            -- Verification status
+            SUM(CASE WHEN needed_human_verification = TRUE THEN 1 ELSE 0 END) as needed_human_verification_count
         FROM conversations
     """)
     stats = cur.fetchone()
-    user_violations = stats[0] or 0
-    assistant_violations = stats[1] or 0
-    total_prompt_tokens = stats[2] or 0
-    total_completion_tokens = stats[3] or 0
-    total_all_tokens = stats[4] or 0
-    total_input_cost = float(stats[5] or 0)
-    total_output_cost = float(stats[6] or 0)
-    total_all_cost = float(stats[7] or 0)
-    avg_latency = int(stats[8] or 0)
+    auto_user_violations = stats[0] or 0
+    auto_assistant_violations = stats[1] or 0
+    human_verified_user_violations = stats[2] or 0
+    human_verified_assistant_violations = stats[3] or 0
+    total_prompt_tokens = stats[4] or 0
+    total_completion_tokens = stats[5] or 0
+    total_all_tokens = stats[6] or 0
+    total_input_cost = float(stats[7] or 0)
+    total_output_cost = float(stats[8] or 0)
+    total_all_cost = float(stats[9] or 0)
+    avg_latency = int(stats[10] or 0)
+    needed_verification_count = int(stats[11] or 0)
     
     conn.close()
     
     return {
         "total_sets": total_sets,
         "total_contributors": total_contributors,
-        "user_violations": user_violations,
-        "assistant_violations": assistant_violations,
+        # Auto-detected violations
+        "user_violations": auto_user_violations,
+        "assistant_violations": auto_assistant_violations,
+        # Human-verified violations
+        "human_verified_user_violations": human_verified_user_violations,
+        "human_verified_assistant_violations": human_verified_assistant_violations,
+        # Total violations (auto + human-verified)
+        "total_user_violations": auto_user_violations + human_verified_user_violations,
+        "total_assistant_violations": auto_assistant_violations + human_verified_assistant_violations,
+        # Usage statistics
         "total_prompt_tokens": total_prompt_tokens,
         "total_completion_tokens": total_completion_tokens,
         "total_tokens": total_all_tokens,
         "total_input_cost": total_input_cost,
         "total_output_cost": total_output_cost,
         "total_cost": total_all_cost,
-        "avg_latency_ms": avg_latency
+        "avg_latency_ms": avg_latency,
+        # Verification status
+        "needed_human_verification": needed_verification_count
     }
 

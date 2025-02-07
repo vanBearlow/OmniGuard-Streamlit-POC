@@ -47,6 +47,8 @@ def init_db():
             user_violation_votes INTEGER DEFAULT 0,
             assistant_violation_votes INTEGER DEFAULT 0,
             no_violation_votes INTEGER DEFAULT 0,
+            reported_user_violation BOOLEAN DEFAULT FALSE,
+            reported_assistant_violation BOOLEAN DEFAULT FALSE,
             created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
         )'''
     )
@@ -65,6 +67,20 @@ def init_db():
         cur.execute("ALTER TABLE flagged_conversations ADD COLUMN no_violation_votes INTEGER DEFAULT 0")
     if "created_at" not in columns:
         cur.execute("ALTER TABLE flagged_conversations ADD COLUMN created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP")
+    if "reported_user_violation" not in columns:
+        cur.execute("ALTER TABLE flagged_conversations ADD COLUMN reported_user_violation BOOLEAN DEFAULT FALSE")
+    if "reported_assistant_violation" not in columns:
+        cur.execute("ALTER TABLE flagged_conversations ADD COLUMN reported_assistant_violation BOOLEAN DEFAULT FALSE")
+    
+    # Add final decision columns if they don't exist
+    if "final_decision_made" not in columns:
+        cur.execute("ALTER TABLE flagged_conversations ADD COLUMN final_decision_made BOOLEAN DEFAULT FALSE")
+    if "final_decision_timestamp" not in columns:
+        cur.execute("ALTER TABLE flagged_conversations ADD COLUMN final_decision_timestamp TIMESTAMP WITH TIME ZONE")
+    if "final_decision_details" not in columns:
+        cur.execute("ALTER TABLE flagged_conversations ADD COLUMN final_decision_details JSONB")
+    if "archived" not in columns:
+        cur.execute("ALTER TABLE flagged_conversations ADD COLUMN archived BOOLEAN DEFAULT FALSE")
     
     # Create votes tracking table
     cur.execute(
@@ -83,6 +99,7 @@ def get_flagged_conversations(export_format="jsonl"):
     cur.execute("""
         SELECT conversation_id, conversation_messages, conversation_configuration,
                user_violation_votes, assistant_violation_votes, no_violation_votes,
+               reported_user_violation, reported_assistant_violation,
                created_at
         FROM flagged_conversations
     """)
@@ -98,27 +115,33 @@ def get_flagged_conversations(export_format="jsonl"):
                 "user_violation_votes": row[3],
                 "assistant_violation_votes": row[4],
                 "no_violation_votes": row[5],
-                "created_at": row[6].isoformat() if row[6] else None
+                "reported_user_violation": bool(row[6]),
+                "reported_assistant_violation": bool(row[7]),
+                "created_at": row[8].isoformat() if row[8] else None
             })
         return "\n".join(json.dumps(conv) for conv in results)
     else:
         return json.dumps(rows)
 
-def save_flagged_conversation(conversation_id, conversation_messages, conversation_configuration="", 
-                            user_violation_votes=0, assistant_violation_votes=0, no_violation_votes=0):
+def save_flagged_conversation(conversation_id, conversation_messages, conversation_configuration="",
+                             user_violation_votes=0, assistant_violation_votes=0, no_violation_votes=0,
+                             reported_user_violation=False, reported_assistant_violation=False):
     conn = get_connection()
     cur = conn.cursor()
     query = """
-        INSERT INTO flagged_conversations 
-        (conversation_id, conversation_messages, conversation_configuration, 
-         user_violation_votes, assistant_violation_votes, no_violation_votes)
-        VALUES (%s, %s, %s, %s, %s, %s)
+        INSERT INTO flagged_conversations
+        (conversation_id, conversation_messages, conversation_configuration,
+         user_violation_votes, assistant_violation_votes, no_violation_votes,
+         reported_user_violation, reported_assistant_violation)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
         ON CONFLICT (conversation_id) DO UPDATE SET
             conversation_messages = EXCLUDED.conversation_messages,
             conversation_configuration = EXCLUDED.conversation_configuration,
             user_violation_votes = EXCLUDED.user_violation_votes,
             assistant_violation_votes = EXCLUDED.assistant_violation_votes,
-            no_violation_votes = EXCLUDED.no_violation_votes
+            no_violation_votes = EXCLUDED.no_violation_votes,
+            reported_user_violation = EXCLUDED.reported_user_violation,
+            reported_assistant_violation = EXCLUDED.reported_assistant_violation
     """
     cur.execute(query, (
         conversation_id,
@@ -133,7 +156,9 @@ def save_flagged_conversation(conversation_id, conversation_messages, conversati
         conversation_configuration,
         user_violation_votes,
         assistant_violation_votes,
-        no_violation_votes
+        no_violation_votes,
+        reported_user_violation,
+        reported_assistant_violation
     ))
     conn.commit()
     conn.close()

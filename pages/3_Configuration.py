@@ -106,13 +106,54 @@ contribute = st.toggle(
 
 st.session_state.contribute_training_data = contribute
 if not contribute:
-    st.info("To continue using CMS without sharing your interaction data, please enter your own OpenRouter API Key")
-    user_api_key = st.text_input("OpenRouter API Key", type="password", key="api_key_input")
-    if user_api_key:
-        st.session_state.api_key = user_api_key
+    # Check if user is logged in and has an API key
+    if st.experimental_user.get("is_logged_in", False):
+        from database import get_connection
+        import json
+        
+        # Get user's stored API key
+        conn = get_connection()
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT api_keys FROM users WHERE email = %s",
+            (st.experimental_user.get("email"),)
+        )
+        result = cur.fetchone()
+        conn.close()
+        
+        stored_api_keys = json.loads(result[0]) if result and result[0] else {}
+        stored_key = stored_api_keys.get("openrouter")
+        
+        if stored_key:
+            st.session_state.api_key = stored_key
+            st.success("Using API key from your profile")
+        else:
+            st.info("To continue using CMS without sharing your interaction data, please enter your OpenRouter API Key")
+            user_api_key = st.text_input("OpenRouter API Key", type="password", key="api_key_input")
+            if user_api_key:
+                st.session_state.api_key = user_api_key
+                # Save the API key to user's profile
+                conn = get_connection()
+                cur = conn.cursor()
+                stored_api_keys["openrouter"] = user_api_key
+                cur.execute(
+                    "UPDATE users SET api_keys = %s WHERE email = %s",
+                    (json.dumps(stored_api_keys), st.experimental_user.get("email"))
+                )
+                conn.commit()
+                conn.close()
+                st.success("API key saved to your profile")
+            else:
+                st.error("An API key is required when data sharing is disabled.")
+                st.stop()
     else:
-        st.error("An API key is required when data sharing is disabled.")
-        st.stop()
+        st.info("To continue using CMS without sharing your interaction data, please enter your OpenRouter API Key")
+        user_api_key = st.text_input("OpenRouter API Key", type="password", key="api_key_input")
+        if user_api_key:
+            st.session_state.api_key = user_api_key
+        else:
+            st.error("An API key is required when data sharing is disabled.")
+            st.stop()
 
 if st.button("Save Changes", key="save_button"):
     st.session_state.CMS_configuration = updated_omniguard_config

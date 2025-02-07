@@ -2,10 +2,14 @@ import streamlit as st
 from prompts import CMS_configuration
 from database import get_all_conversations, init_db, get_dataset_stats
 from typing import Dict, Any
+from components.auth import render_auth_status
 
 init_db()
 
-st.set_page_config(page_title="OmniGuard", page_icon=":shield:")
+st.set_page_config(page_title="OmniGuard", page_icon=":shield:") #never use layout="wide"
+
+# Add authentication status to sidebar
+render_auth_status()
 
 def render_overview() -> None:
     st.title("OmniGuard - a Conversation Moderation System (CMS)")
@@ -128,11 +132,15 @@ def render_dataset_stats(stats: Dict[str, Any]) -> None:
     st.markdown("---")
     st.markdown("## Dataset")
     
+    # Calculate percentage of conversations needing human verification
+    verification_percentage = (stats['needed_human_verification'] / stats['total_sets'] * 100) if stats['total_sets'] > 0 else 0
+    
     st.markdown(f"""
     ### Total Interactions: `{stats['total_sets']:,}`\n
     ### Successfully Rejected:
       - User: `{stats['user_violations']:,}`
       - Assistant: `{stats['assistant_violations']:,}`
+    ### Human Verification Needed: `{stats['needed_human_verification']:,}` (`{verification_percentage:.1f}%`)
     ### Contributors: `{stats['total_contributors']:,}`
     
     ### Token Usage:
@@ -189,7 +197,8 @@ def render_dataset_format() -> None:
           "input_cost": 0.0000,
           "output_cost": 0.0000,
           "total_cost": 0.0000,
-          "latency_ms": 0
+          "latency_ms": 0,
+          "needed_human_verification": false
         }
         ```
         """)

@@ -202,6 +202,8 @@ def process_CMS_result(CMS_result, user_prompt, context):
         with st.chat_message("assistant"):
             action = cms_raw_response.get("response", {}).get("action")
             if action != "allow":
+                # Increment rejection counter
+                st.session_state.rejection_count += 1
                 response_text = (
                     cms_raw_response["response"].get("UserInputRejection")
                     or cms_raw_response["response"].get("AssistantOutputRejection")
