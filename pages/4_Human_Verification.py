@@ -102,10 +102,14 @@ def record_vote(conversation_id, api_key, sources):
                         "no_rule_votes": no_rule_votes
                     })
                     # Combine conversation content and configuration.
-                    conversation_context = json.dumps({
-                        "conversation_messages": conversation_messages,
-                        "conversation_configuration": conversation_configuration
-                    })
+                    conversation_context = f"""<input>
+                        <![CDATA[
+                            {{
+                                "id": "{conversation_id}",
+                                "messages": {conversation_messages}
+                            }}
+                        ]]>
+                    </input>"""
 
                     violation_result = assess_rule_violation(report_info, conversation_context)
 
@@ -184,26 +188,28 @@ def main():
             """
             # Human Verification Dashboard
 
-            This page displays interactions flagged for **human verification**.
+            Review interactions that were reported as containing violations, but OmniGuard doesn't agree.
 
-            - **Authentication:** To avoid spam, each session is verified using **OpenAI or Open Router API**.
-            - **Verification Request:**""")
 
-        st.code("""response = client.chat.completions.create(
-  model="gpt-4o-mini",
-  messages=[{"role": "user", "content": [{"type": "text", "text": "Return: True"}]}],
-  response_format={"type": "text"},
-  temperature=0,
-  max_completion_tokens=1
-)""")
+            - **Authentication:** To avoid spam, each session is verified using **OpenAI or Open Router API**.""")
+
+        with st.sidebar.expander("Verification Request"):
+            st.code("""response = client.chat.completions.create(
+    model="gpt-4o-mini",
+    messages=[{"role": "user", "content": [{"type": "text", "text": "Return: True"}]}],
+    response_format={"type": "text"},
+    temperature=0,
+    max_completion_tokens=1
+    )""")
         st.markdown("""
              - **Threshold:** Once a reported interaction reaches **100 total votes**, it will be recorded to the interactions database.
              """)
     
         st.markdown("---")
 
-        st.text_input("Set OpenAI or OpenRouter API Key", type="password", key="api_key", help="This is used to verify the session. It is not stored. Refreshing the page will reset your authentication status.")
+        st.text_input("Authenticate with OpenAI or OpenRouter API Key:", type="password", key="api_key", help="This is used to verify the session. It is not stored. Refreshing the page will reset your authentication status.")
     
+
 
     api_key = st.session_state.get("api_key")
     if not api_key:

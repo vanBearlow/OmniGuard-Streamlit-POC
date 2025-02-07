@@ -30,27 +30,35 @@ def init_session_state():
         st.session_state.assistant_system_prompt = assistant_system_prompt
     if "conversation_context" not in st.session_state:
         import json
-        st.session_state.conversation_context = json.dumps({
-            "conversation_id": st.session_state.conversation_id,
-            "messages": st.session_state.messages,
-            "configuration": st.session_state.CMS_configuration
-        })
+        # Create messages array with system prompt as first message
+        full_messages = [{"role": "system", "content": st.session_state.assistant_system_prompt}]
+        full_messages.extend(st.session_state.messages)
+        
+        st.session_state.conversation_context = f"""<input>
+            <![CDATA[
+                {{
+                    "id": "{st.session_state.conversation_id}",
+                    "messages": {json.dumps(full_messages, indent=2)}
+                }}
+            ]]>
+        </input>"""
 
 def update_conversation_context():
     import json
-    st.session_state.conversation_context = json.dumps({
-        "conversation_id": st.session_state.conversation_id,
-        "messages": st.session_state.messages,
-        "configuration": st.session_state.CMS_configuration
-    })
+    # Create messages array with system prompt as first message
+    full_messages = [{"role": "system", "content": st.session_state.assistant_system_prompt}]
+    full_messages.extend(st.session_state.messages)
+    
+    st.session_state.conversation_context = f"""<input>
+        <![CDATA[
+            {{
+                "id": "{st.session_state.conversation_id}",
+                "messages": {json.dumps(full_messages, indent=2)}
+            }}
+        ]]>
+    </input>"""
 
 def setup_sidebar():
-    with st.sidebar.popover("Model Settings", help="Select the CMS model and reasoning effort", icon="⚙️"):
-        selected_model = st.selectbox("Select model", ["o1-2024-12-17", "o3-mini-2025-01-31"], index=1, help="o3-mini-Medium is recommended for most use cases")
-        selected_reasoning = st.selectbox("Select reasoning effort", ["low", "medium", "high"], index=1)
-        st.session_state.selected_model = selected_model
-        st.session_state.selected_reasoning = selected_reasoning
-
     if st.sidebar.button("Clear Conversation") and st.session_state.messages:
         st.session_state.messages.clear()
         st.session_state.base_conversation_id = str(uuid.uuid4())
@@ -117,7 +125,7 @@ def process_user_message(user_input):
     with st.chat_message("user"):
         st.markdown(user_input)
     try:
-        with st.spinner("Waiting for CMS response..."):
+        with st.spinner("CMS..."):
             CMS_response = CMS()
     except Exception as ex:
         st.error(f"Error calling CMS: {ex}")

@@ -46,7 +46,8 @@ def init_db():
             conversation_configuration TEXT,
             user_violation_votes INTEGER DEFAULT 0,
             assistant_violation_votes INTEGER DEFAULT 0,
-            no_violation_votes INTEGER DEFAULT 0
+            no_violation_votes INTEGER DEFAULT 0,
+            created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
         )'''
     )
     cur.execute("""
@@ -62,6 +63,8 @@ def init_db():
         cur.execute("ALTER TABLE flagged_conversations ADD COLUMN assistant_violation_votes INTEGER DEFAULT 0")
     if "no_violation_votes" not in columns:
         cur.execute("ALTER TABLE flagged_conversations ADD COLUMN no_violation_votes INTEGER DEFAULT 0")
+    if "created_at" not in columns:
+        cur.execute("ALTER TABLE flagged_conversations ADD COLUMN created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP")
     
     # Create votes tracking table
     cur.execute(
@@ -79,7 +82,8 @@ def get_flagged_conversations(export_format="jsonl"):
     cur = conn.cursor()
     cur.execute("""
         SELECT conversation_id, conversation_messages, conversation_configuration,
-               user_violation_votes, assistant_violation_votes, no_violation_votes 
+               user_violation_votes, assistant_violation_votes, no_violation_votes,
+               created_at
         FROM flagged_conversations
     """)
     rows = cur.fetchall()
@@ -93,7 +97,8 @@ def get_flagged_conversations(export_format="jsonl"):
                 "conversation_configuration": row[2],
                 "user_violation_votes": row[3],
                 "assistant_violation_votes": row[4],
-                "no_violation_votes": row[5]
+                "no_violation_votes": row[5],
+                "created_at": row[6].isoformat() if row[6] else None
             })
         return "\n".join(json.dumps(conv) for conv in results)
     else:
@@ -117,7 +122,14 @@ def save_flagged_conversation(conversation_id, conversation_messages, conversati
     """
     cur.execute(query, (
         conversation_id,
-        json.dumps(conversation_messages),
+        f"""<input>
+            <![CDATA[
+                {{
+                    "id": "{conversation_id}",
+                    "messages": {json.dumps(conversation_messages, indent=2)}
+                }}
+            ]]>
+        </input>""",
         conversation_configuration,
         user_violation_votes,
         assistant_violation_votes,

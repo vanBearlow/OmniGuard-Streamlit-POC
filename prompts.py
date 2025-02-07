@@ -75,7 +75,7 @@ CMS_configuration = """<purpose>
   <![CDATA[
   {
     "conversation_id": "string",
-    "analysisSummary": "Short note on triggered rules or 'No violations'.",
+    "analysisSummary": "Short note on conversation interpretation and triggered rules.",
     "response": {
         "action": "allow | UserInputRejection | AssistantOutputRejection",
         "UserInputRejection": "string",
