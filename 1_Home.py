@@ -14,9 +14,10 @@ def main():
 
     - **CMS** is an advanced, reasoning-based moderation system for text-based LLM interactions.
     - It acts as an intelligent safeguard by continuously evaluating both user and assistant messages against a configurable set of content rules.
-    - Leveraging advanced reasoning, CMS goes beyond simple keyword filtering—understanding context, nuance, and user intent—to ensure that only compliant, safe content progresses in the conversation.
+    - Leveraging advanced reasoning, CMS goes beyond simple keyword filtering understanding context, nuance, and user intent to ensure that only compliant, safe content progresses in the conversation.
     - CMS actively sanitizes minor violations and probes for clarification in ambiguous cases, thereby preserving an engaging and meaningful dialogue while upholding safety standards.
     """)
+
 
     st.markdown("""
     **Disclaimer:** This methodology is designed to serve as a robust moderation layer rather than a comprehensive AI safety solution. CMS segregates safety processes from the assistant’s primary functions, ensuring that core operations remain performant while content is evaluated in real time.
@@ -28,11 +29,11 @@ def main():
     ## 2. System Flow
 
     1. **Configuration**  
-       - The safety configuration—which includes the Purpose, Instructions, and Rules—is injected into the `role.developer.content` field.
+       - The safety configuration which includes the Purpose, Instructions, and Rules is injected into the `role.developer.content` field.
        - This configuration primes CMS with all necessary guidelines and behavioral protocols before any messages are processed.
     
     2. **Message Handling**  
-       - CMS inspects every incoming message using advanced reasoning to assess compliance with the active rules.
+       - CMS inspects every incoming message to assess compliance with the active rules.
        - If a violation is detected, CMS either sanitizes minor issues or, in cases of major violations, replaces the message with a safe, generic refusal.
        - When ambiguity exists, CMS proactively asks for clarification to fully understand the user's intent before finalizing a moderation decision.
     """)
