@@ -46,7 +46,7 @@ def update_conversation_context():
 
 def setup_sidebar():
     with st.sidebar.popover("Model Settings", help="Select the CMS model and reasoning effort", icon="⚙️"):
-        selected_model = st.selectbox("Select model", ["o1-2024-12-17", "o3-mini-2025-01-31"], index=1)
+        selected_model = st.selectbox("Select model", ["o1-2024-12-17", "o3-mini-2025-01-31"], index=1, help="o3-mini-Medium is recommended for most use cases")
         selected_reasoning = st.selectbox("Select reasoning effort", ["low", "medium", "high"], index=1)
         st.session_state.selected_model = selected_model
         st.session_state.selected_reasoning = selected_reasoning
