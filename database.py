@@ -90,7 +90,9 @@ def init_db():
             input_cost NUMERIC(10,4),
             output_cost NUMERIC(10,4),
             total_cost NUMERIC(10,4),
-            latency_ms INTEGER
+            latency_ms INTEGER,
+            usage_data JSONB DEFAULT '{}',
+            request_timings JSONB DEFAULT '{}'
         )'''
     )
     # Use PostgreSQL-compatible schema inspection
@@ -154,7 +156,10 @@ def get_all_conversations(export_format="jsonl"):
         for row in rows:
             results.append({
                 "conversation_id": row[0],
-                "cms_evaluation_input": json.loads(row[1]) if row[1] else None,
+                "cms_evaluation_input": {
+                    "configuration": row[1].split("<configuration>")[1].split("</configuration>")[0] if row[1] and "<configuration>" in row[1] else "",
+                    "conversation": row[1].split("<input>")[1].split("</input>")[0] if row[1] and "<input>" in row[1] else ""
+                } if row[1] else None,
                 "cms_raw_response": json.loads(row[2]) if row[2] else None,
                 "assistant_output": row[3],
                 "user_violates_rules": bool(row[4]),
@@ -181,7 +186,8 @@ def save_conversation(conversation_id, user_violates_rules=False,
                      cms_raw_response=None, assistant_output=None, model_name=None,
                      reasoning_effort=None, prompt_tokens=None, completion_tokens=None,
                      total_tokens=None, input_cost=None, output_cost=None, total_cost=None,
-                     latency_ms=None, needed_human_verification=False):
+                     latency_ms=None, needed_human_verification=False, usage_data=None,
+                     request_timings=None):
     conn = get_connection()
     cur = conn.cursor()
     cur.execute(
@@ -192,9 +198,9 @@ def save_conversation(conversation_id, user_violates_rules=False,
              model_name, reasoning_effort, contributor,
              prompt_tokens, completion_tokens, total_tokens,
              input_cost, output_cost, total_cost, latency_ms,
-             needed_human_verification)
+             needed_human_verification, usage_data, request_timings)
         VALUES
-            (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         ON CONFLICT (conversation_id) DO UPDATE
             SET cms_evaluation_input = EXCLUDED.cms_evaluation_input,
                 cms_raw_response = EXCLUDED.cms_raw_response,
@@ -211,7 +217,9 @@ def save_conversation(conversation_id, user_violates_rules=False,
                 output_cost = EXCLUDED.output_cost,
                 total_cost = EXCLUDED.total_cost,
                 latency_ms = EXCLUDED.latency_ms,
-                needed_human_verification = EXCLUDED.needed_human_verification
+                needed_human_verification = EXCLUDED.needed_human_verification,
+                usage_data = EXCLUDED.usage_data,
+                request_timings = EXCLUDED.request_timings
         """,
         (
             conversation_id,
@@ -237,7 +245,9 @@ def save_conversation(conversation_id, user_violates_rules=False,
             output_cost,
             total_cost,
             latency_ms,
-            needed_human_verification
+            needed_human_verification,
+            json.dumps(usage_data) if usage_data else '{}',
+            json.dumps(request_timings) if request_timings else '{}'
         )
     )
     conn.commit()
@@ -268,7 +278,10 @@ def get_conversation(conversation_id):
     if result:
         return {
             "conversation_id": result[0],
-            "cms_evaluation_input": json.loads(result[1]) if result[1] else None,
+            "cms_evaluation_input": {
+                "configuration": result[1].split("<configuration>")[1].split("</configuration>")[0] if result[1] and "<configuration>" in result[1] else "",
+                "conversation": result[1].split("<input>")[1].split("</input>")[0] if result[1] and "<input>" in result[1] else ""
+            } if result[1] else None,
             "cms_raw_response": json.loads(result[2]) if result[2] else None,
             "assistant_output": result[3],
             "user_violates_rules": bool(result[4]),
@@ -300,6 +313,64 @@ def remove_conversation(conversation_id):
     )
     conn.commit()
     conn.close()
+
+def get_leaderboard_stats():
+    """
+    Get leaderboard statistics for contributors, showing their effectiveness in identifying harmful prompts
+    and assistant rejections.
+    
+    Returns:
+        List of dictionaries containing contributor stats
+    """
+    conn = get_connection()
+    cur = conn.cursor()
+    
+    cur.execute("""
+        WITH contributor_stats AS (
+            SELECT
+                contributor,
+                COUNT(*) as total_contributions,
+                -- Human verified harmful prompts (primary metric)
+                SUM(CASE
+                    WHEN needed_human_verification = TRUE
+                    AND user_violates_rules = 1
+                    THEN 1 ELSE 0
+                END) as verified_harmful_prompts,
+                -- Assistant rejections
+                SUM(CASE
+                    WHEN user_violates_rules = 0
+                    AND assistant_violates_rules = 1
+                    AND needed_human_verification = TRUE
+                    THEN 1 ELSE 0
+                END) as assistant_rejections
+            FROM conversations
+            WHERE contributor IS NOT NULL
+            AND contributor != ''
+            GROUP BY contributor
+        )
+        SELECT
+            contributor,
+            total_contributions,
+            verified_harmful_prompts,
+            assistant_rejections,
+            ROUND(CAST(verified_harmful_prompts AS NUMERIC) /
+                NULLIF(total_contributions, 0) * 100, 2) as success_rate
+        FROM contributor_stats
+        ORDER BY verified_harmful_prompts DESC, assistant_rejections DESC
+    """)
+    
+    results = []
+    for row in cur.fetchall():
+        results.append({
+            "contributor": row[0],
+            "total_contributions": row[1],
+            "verified_harmful_prompts": row[2],
+            "assistant_rejections": row[3],
+            "success_rate": float(row[4]) if row[4] is not None else 0.0
+        })
+    
+    conn.close()
+    return results
 
 def get_dataset_stats():
     """
