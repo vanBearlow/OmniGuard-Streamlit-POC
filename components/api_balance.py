@@ -1,5 +1,4 @@
 import streamlit as st
-from streamlit_autorefresh import st_autorefresh
 from database import get_dataset_stats
 import logging
 
@@ -9,7 +8,17 @@ logger = logging.getLogger(__name__)
 
 @st.cache_data(ttl=60)  # Cache for 1 minute
 def get_api_balance():
-    """Get API balance with fallbacks and error handling"""
+    """
+    Retrieve the current API balance by calculating the difference between the allocated budget and the total cost.
+
+    This function attempts to obtain the API budget from Streamlit secrets, defaulting to 1000.00 if not provided.
+    It then tries to fetch the total cost from the database via get_dataset_stats. In the event of a database error,
+    the function uses the last known total cost from the session state. The remaining balance is stored in the session
+    state and returned.
+
+    Returns:
+        float: The calculated API balance.
+    """
     try:
         # Get budget from secrets
         try:
@@ -17,7 +26,7 @@ def get_api_balance():
         except (KeyError, ValueError, TypeError):
             logger.warning("Could not get api_budget from secrets, using default")
             budget = 1000.00
-            
+        
         try:
             # Try to get total cost from database
             stats = get_dataset_stats()
@@ -43,80 +52,51 @@ def get_api_balance():
         logger.error(f"Error calculating API balance: {str(e)}")
         return st.session_state.get("last_known_balance", 1000.00)
 
-def display_api_balance(refresh_interval=60, dynamic_refresh=True):
-    """Display API balance with optional auto-refresh
-    
-    Args:
-        refresh_interval (int): Base refresh interval in seconds
-        dynamic_refresh (bool): If True, adjusts refresh rate based on usage patterns
+def display_api_balance():
+    """
+    Display the current API balance on the Streamlit interface and update the display accordingly.
+
+    This function retrieves the API balance using get_api_balance, calculates the delta compared to the previous balance,
+    and displays the metric using st.metric. It also updates the session state with the current balance and shows a warning
+    if cached data is being used.
+
+    Returns:
+        None
     """
     try:
         container = st.empty()
+        
+        # Get current balance and previous balance
+        balance = get_api_balance()
+        prev_balance = st.session_state.get('prev_balance', balance)
+        
+        # Calculate delta
+        delta = balance - prev_balance if prev_balance is not None else None
+        if delta is not None and prev_balance != 0:
+            pct_change = (delta / prev_balance) * 100
+            delta_text = f"${delta:.2f} ({pct_change:.1f}%)"
+        else:
+            delta_text = None
+        
+        # Display metric
         with container:
-            if refresh_interval > 0:
-                # Adjust refresh rate based on usage patterns if dynamic refresh is enabled
-                if dynamic_refresh:
-                    # Check if there's been significant change in last update
-                    significant_change = (
-                        'prev_balance' in st.session_state
-                        and abs(balance - st.session_state.prev_balance) > 0.01
-                    )
-                    
-                    # Get current refresh rate or use default
-                    current_refresh = st.session_state.get('refresh_rate', refresh_interval)
-                    
-                    # Adjust refresh rate based on activity
-                    if significant_change and current_refresh > 15:  # Minimum 15 seconds
-                        # Decrease interval (faster updates) when there's activity
-                        new_refresh = max(15, current_refresh - 15)
-                    elif not significant_change and current_refresh < refresh_interval:
-                        # Gradually return to base interval during inactivity
-                        new_refresh = min(refresh_interval, current_refresh + 5)
-                    else:
-                        new_refresh = current_refresh
-                    
-                    st.session_state.refresh_rate = new_refresh
-                    actual_refresh = new_refresh
-                else:
-                    actual_refresh = refresh_interval
-                
-                st_autorefresh(interval=actual_refresh * 1000, key="balance_refresh")
-            
-            # Get current balance
-            balance = get_api_balance()
-            
-            # Get previous balance from session state
-            prev_balance = st.session_state.get('prev_balance', balance)
-            
-            # Calculate delta
-            delta = balance - prev_balance if prev_balance is not None else None
-            
-            # Calculate percentage change for delta
-            if delta is not None and prev_balance != 0:
-                pct_change = (delta / prev_balance) * 100
-                delta_text = f"${delta:.2f} ({pct_change:.1f}%)"
-            else:
-                delta_text = None
-
-            # Display metric
             st.metric(
                 "API Balance",
                 f"${balance:.2f}",
                 delta=delta_text,
                 delta_color="inverse"  # Red when spending money (negative delta)
             )
-            
-            # Update session state
-            st.session_state.prev_balance = balance
-            
-            # Show warning if using cached data
-            if "last_known_total_cost" in st.session_state:
-                st.warning("⚠️ Using cached cost data - some values may be outdated", icon="⚠️")
+        
+        # Update session state with current balance
+        st.session_state.prev_balance = balance
+        
+        # Show warning if using cached data
+        if "last_known_total_cost" in st.session_state:
+            st.warning("⚠️ Using cached cost data - some values may be outdated", icon="⚠️")
     except Exception as e:
         logger.error(f"Error displaying API balance: {str(e)}")
         with container:
             st.error("Error displaying API balance - showing last known value")
-            # Get last known good value
             last_balance = st.session_state.get("last_known_balance")
             if last_balance is not None:
                 st.metric(

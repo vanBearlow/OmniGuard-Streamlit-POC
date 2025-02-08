@@ -10,8 +10,46 @@ from dotenv import load_dotenv
 from datetime import datetime, timezone
 import time
 import logging
+from functools import wraps
+from time import perf_counter
 
 # Configure logging
+def monitor_query(query_name):
+    """
+    Decorator to monitor query performance.
+
+    Args:
+        query_name (str): Identifier for the query being monitored.
+
+    Returns:
+        function: A decorator function that wraps the original function to log and monitor query performance.
+    """
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            start_time = perf_counter()
+            try:
+                result = func(*args, **kwargs)
+                duration = (perf_counter() - start_time) * 1000  # Convert to milliseconds
+                
+                # Log query stats
+                conn = get_connection()
+                cur = conn.cursor()
+                cur.execute("SELECT log_query_stats(%s, %s)", (query_name, duration))
+                conn.commit()
+                conn.close()
+                
+                # Log slow queries (over 1000ms)
+                if duration > 1000:
+                    logger.warning(f"Slow query detected - {query_name}: {duration:.2f}ms")
+                
+                return result
+            except Exception as e:
+                logger.error(f"Query failed - {query_name}: {str(e)}")
+                raise
+        return wrapper
+    return decorator
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -19,7 +57,19 @@ logger = logging.getLogger(__name__)
 load_dotenv()
 
 def get_connection_with_retry(max_retries=3, retry_delay=1):
-    """Get database connection with retry logic"""
+    """
+    Establish a PostgreSQL database connection using retry logic.
+
+    Args:
+        max_retries (int): Maximum number of retry attempts (default is 3).
+        retry_delay (int): Delay in seconds between retry attempts (default is 1).
+
+    Returns:
+        connection: A psycopg2 connection object.
+
+    Raises:
+        Exception: If connection fails after the specified number of retries.
+    """
     last_error = None
     for attempt in range(max_retries):
         try:
@@ -62,13 +112,138 @@ def get_connection_with_retry(max_retries=3, retry_delay=1):
 
 def get_connection():
     """
-    Backwards compatible connection function that uses retry logic
+    Retrieve a PostgreSQL database connection using retry logic.
+
+    Returns:
+        connection: A psycopg2 connection object obtained via get_connection_with_retry.
     """
     return get_connection_with_retry()
 
 def init_db():
     conn = get_connection()
+    conn.autocommit = True
     cur = conn.cursor()
+    
+    # Create materialized view for leaderboard stats
+    cur.execute('''
+        CREATE MATERIALIZED VIEW IF NOT EXISTS mv_leaderboard_stats AS
+        WITH contributor_stats AS (
+            SELECT
+                contributor,
+                COUNT(*) as total_contributions,
+                SUM(CASE
+                    WHEN needed_human_verification = TRUE
+                    AND user_violates_rules = 1
+                    THEN 1 ELSE 0
+                END) as verified_harmful_prompts,
+                SUM(CASE
+                    WHEN user_violates_rules = 0
+                    AND assistant_violates_rules = 1
+                    AND needed_human_verification = TRUE
+                    THEN 1 ELSE 0
+                END) as assistant_rejections
+            FROM conversations
+            WHERE contributor IS NOT NULL
+            AND contributor != ''
+            GROUP BY contributor
+        )
+        SELECT
+            contributor,
+            total_contributions,
+            verified_harmful_prompts,
+            assistant_rejections,
+            ROUND(CAST(verified_harmful_prompts AS NUMERIC) /
+                NULLIF(total_contributions, 0) * 100, 2) as success_rate
+        FROM contributor_stats
+    ''')
+    
+    # Create function to refresh materialized view
+    cur.execute('''
+        CREATE OR REPLACE FUNCTION refresh_mv_leaderboard_stats()
+        RETURNS void AS $$
+        BEGIN
+            REFRESH MATERIALIZED VIEW mv_leaderboard_stats;
+        END;
+        $$ LANGUAGE plpgsql;
+    ''')
+    
+    # Schedule refresh (requires pg_cron extension)
+    try:
+        cur.execute('''
+            SELECT cron.schedule('0 * * * *', $$
+                SELECT refresh_mv_leaderboard_stats();
+            $$);
+        ''')
+    except Exception as e:
+        logger.warning(f"Could not schedule materialized view refresh: {str(e)}")
+        logger.info("Manual refresh of mv_leaderboard_stats will be required")
+    
+    # Create query_stats table for monitoring
+    cur.execute('''
+        CREATE TABLE IF NOT EXISTS query_stats (
+            query_name TEXT PRIMARY KEY,
+            avg_duration NUMERIC,
+            max_duration NUMERIC,
+            call_count INTEGER,
+            last_slow_query TIMESTAMP WITH TIME ZONE,
+            updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+    
+    # Create function to log query performance
+    cur.execute('''
+        CREATE OR REPLACE FUNCTION log_query_stats(
+            p_query_name TEXT,
+            p_duration NUMERIC
+        ) RETURNS void AS $$
+        BEGIN
+            INSERT INTO query_stats (query_name, avg_duration, max_duration, call_count)
+            VALUES (p_query_name, p_duration, p_duration, 1)
+            ON CONFLICT (query_name) DO UPDATE
+            SET avg_duration = (query_stats.avg_duration * query_stats.call_count + p_duration) / (query_stats.call_count + 1),
+                max_duration = GREATEST(query_stats.max_duration, p_duration),
+                call_count = query_stats.call_count + 1,
+                last_slow_query = CASE
+                    WHEN p_duration > query_stats.max_duration THEN CURRENT_TIMESTAMP
+                    ELSE query_stats.last_slow_query
+                END,
+                updated_at = CURRENT_TIMESTAMP;
+        END;
+        $$ LANGUAGE plpgsql;
+    ''')
+    
+    # Create bounties table
+    cur.execute('''
+        CREATE TABLE IF NOT EXISTS bounties (
+            bounty_id TEXT PRIMARY KEY,
+            title TEXT NOT NULL,
+            description TEXT,
+            metric TEXT NOT NULL,
+            start_date TIMESTAMP WITH TIME ZONE NOT NULL,
+            end_date TIMESTAMP WITH TIME ZONE NOT NULL,
+            prize_pool_amount NUMERIC(10,2) DEFAULT 0.00,
+            status TEXT DEFAULT 'active',
+            winner_id TEXT,
+            created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (winner_id) REFERENCES users(user_id)
+        )
+    ''')
+    
+    # Create donations table
+    cur.execute('''
+        CREATE TABLE IF NOT EXISTS donations (
+            donation_id TEXT PRIMARY KEY,
+            user_id TEXT,  -- Nullable for anonymous donations
+            display_name TEXT,  -- Can be NULL for anonymous or custom display name
+            amount NUMERIC(10,2) NOT NULL,
+            use_for TEXT NOT NULL,  -- 'bounty', 'api_costs', etc.
+            bounty_id TEXT,  -- NULL if not for a specific bounty
+            created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users(user_id),
+            FOREIGN KEY (bounty_id) REFERENCES bounties(bounty_id)
+        )
+    ''')
     
     # Create users table
     
@@ -86,6 +261,22 @@ def init_db():
     cur.execute("""
         CREATE INDEX IF NOT EXISTS idx_conversations_contributor_verification
         ON conversations(contributor, needed_human_verification);
+    """)
+    
+    # Add new optimized indexes for common queries
+    cur.execute("""
+        CREATE INDEX IF NOT EXISTS idx_conversations_contributor_metrics
+        ON conversations(contributor, needed_human_verification, user_violates_rules, assistant_violates_rules);
+    """)
+    
+    cur.execute("""
+        CREATE INDEX IF NOT EXISTS idx_conversations_verification_metrics
+        ON conversations(needed_human_verification, user_violates_rules, assistant_violates_rules);
+    """)
+    
+    cur.execute("""
+        CREATE INDEX IF NOT EXISTS idx_conversations_created_at
+        ON conversations(created_at DESC);
     """)
     
     cur.execute(
@@ -189,7 +380,8 @@ def init_db():
     conn.commit()
     conn.close()
 
-@st.cache_data(ttl=1800)  # Cache for 30 minutes
+@st.cache_data(ttl=900)  # Cache for 15 minutes - reduced from 30 to balance freshness and performance
+@monitor_query("get_all_conversations")
 def get_all_conversations(export_format="jsonl", page_size=1000, page=1):
     """
     Get all conversations with pagination support.
@@ -205,27 +397,31 @@ def get_all_conversations(export_format="jsonl", page_size=1000, page=1):
         - total_pages: Total number of pages available
     
     Note:
-        Results are cached for 30 minutes to improve performance
+        Results are cached for 15 minutes to improve performance while ensuring reasonable data freshness
     """
     conn = get_connection()
     cur = conn.cursor()
     
-    # Get total count for pagination
-    cur.execute("SELECT COUNT(*) FROM conversations")
-    total_records = cur.fetchone()[0]
-    total_pages = (total_records + page_size - 1) // page_size
-    
-    # Get paginated data with updated column names
+    # Optimized query combining pagination data and total count
     cur.execute("""
-        SELECT conversation_id, omniguard_evaluation_input, omniguard_raw_response,
-               assistant_output, user_violates_rules, assistant_violates_rules,
-               model_name, reasoning_effort, contributor, created_at,
-               prompt_tokens, completion_tokens, total_tokens,
-               input_cost, output_cost, total_cost, latency_ms,
-               needed_human_verification
-        FROM conversations
-        ORDER BY created_at DESC
-        LIMIT %s OFFSET %s
+        WITH conversation_data AS (
+            SELECT conversation_id, omniguard_evaluation_input, omniguard_raw_response,
+                   assistant_output, user_violates_rules, assistant_violates_rules,
+                   model_name, reasoning_effort, contributor, created_at,
+                   prompt_tokens, completion_tokens, total_tokens,
+                   input_cost, output_cost, total_cost, latency_ms,
+                   needed_human_verification
+            FROM conversations
+            ORDER BY created_at DESC
+            LIMIT %s OFFSET %s
+        ),
+        total_count AS (
+            SELECT COUNT(*) as total
+            FROM conversations
+        )
+        SELECT cd.*, tc.total
+        FROM conversation_data cd
+        CROSS JOIN total_count tc
     """, (page_size, (page - 1) * page_size))
     rows = cur.fetchall()
     conn.close()
@@ -258,6 +454,10 @@ def get_all_conversations(export_format="jsonl", page_size=1000, page=1):
         data = "\n".join(json.dumps(conv) for conv in results)
     else:
         data = json.dumps(results)
+    
+    # Get total count from the last column of our result
+    total_records = rows[0][-1] if rows else 0
+    total_pages = (total_records + page_size - 1) // page_size
     
     return {
         "data": data,
@@ -404,54 +604,69 @@ def remove_conversation(conversation_id):
     conn.commit()
     conn.close()
 
-@st.cache_data(ttl=600)  # Cache for 10 minutes
-def get_leaderboard_stats():
+@st.cache_data(ttl=300, show_spinner=False)  # Cache for 5 minutes with time period granularity
+@monitor_query("get_leaderboard_stats")
+def get_leaderboard_stats(time_period="all"):
     """
-    Get leaderboard statistics for contributors, showing their effectiveness in identifying harmful prompts
-    and assistant rejections.
+    Get leaderboard statistics for contributors with optional time period filtering.
+    
+    Args:
+        time_period: Time period to filter results ("all", "month", "week", "day")
     
     Returns:
         List of dictionaries containing contributor stats
         
     Note:
-        Results are cached for 10 minutes to improve performance
+        Results are cached for 5 minutes per time period
     """
     conn = get_connection()
     cur = conn.cursor()
     
-    cur.execute("""
-        WITH contributor_stats AS (
+    # If using "all", get data from materialized view
+    if time_period == "all":
+        cur.execute("""
+            SELECT * FROM mv_leaderboard_stats
+            ORDER BY verified_harmful_prompts DESC, assistant_rejections DESC
+        """)
+    else:
+        # Calculate date range based on time period
+        cur.execute("""
+            WITH contributor_stats AS (
+                SELECT
+                    contributor,
+                    COUNT(*) as total_contributions,
+                    SUM(CASE
+                        WHEN needed_human_verification = TRUE
+                        AND user_violates_rules = 1
+                        THEN 1 ELSE 0
+                    END) as verified_harmful_prompts,
+                    SUM(CASE
+                        WHEN user_violates_rules = 0
+                        AND assistant_violates_rules = 1
+                        AND needed_human_verification = TRUE
+                        THEN 1 ELSE 0
+                    END) as assistant_rejections
+                FROM conversations
+                WHERE contributor IS NOT NULL
+                AND contributor != ''
+                AND created_at >= CASE %s
+                    WHEN 'month' THEN CURRENT_TIMESTAMP - INTERVAL '1 month'
+                    WHEN 'week' THEN CURRENT_TIMESTAMP - INTERVAL '1 week'
+                    WHEN 'day' THEN CURRENT_TIMESTAMP - INTERVAL '1 day'
+                    ELSE CURRENT_TIMESTAMP
+                END
+                GROUP BY contributor
+            )
             SELECT
                 contributor,
-                COUNT(*) as total_contributions,
-                -- Human verified harmful prompts (primary metric)
-                SUM(CASE
-                    WHEN needed_human_verification = TRUE
-                    AND user_violates_rules = 1
-                    THEN 1 ELSE 0
-                END) as verified_harmful_prompts,
-                -- Assistant rejections
-                SUM(CASE
-                    WHEN user_violates_rules = 0
-                    AND assistant_violates_rules = 1
-                    AND needed_human_verification = TRUE
-                    THEN 1 ELSE 0
-                END) as assistant_rejections
-            FROM conversations
-            WHERE contributor IS NOT NULL
-            AND contributor != ''
-            GROUP BY contributor
-        )
-        SELECT
-            contributor,
-            total_contributions,
-            verified_harmful_prompts,
-            assistant_rejections,
-            ROUND(CAST(verified_harmful_prompts AS NUMERIC) /
-                NULLIF(total_contributions, 0) * 100, 2) as success_rate
-        FROM contributor_stats
-        ORDER BY verified_harmful_prompts DESC, assistant_rejections DESC
-    """)
+                total_contributions,
+                verified_harmful_prompts,
+                assistant_rejections,
+                ROUND(CAST(verified_harmful_prompts AS NUMERIC) /
+                    NULLIF(total_contributions, 0) * 100, 2) as success_rate
+            FROM contributor_stats
+            ORDER BY verified_harmful_prompts DESC, assistant_rejections DESC
+        """, (time_period,))
     
     results = []
     for row in cur.fetchall():
@@ -466,7 +681,8 @@ def get_leaderboard_stats():
     conn.close()
     return results
 
-@st.cache_data(ttl=300)  # Cache for 5 minutes
+@st.cache_data(ttl=60)  # Cache for 1 minute - reduced from 5 minutes since this is used frequently in Chat page
+@monitor_query("get_dataset_stats")
 def get_dataset_stats():
     """
     Get statistics about the dataset including total sets, contributors,
@@ -481,48 +697,44 @@ def get_dataset_stats():
     conn = get_connection()
     cur = conn.cursor()
     
-    # Get total conversations
-    cur.execute("SELECT COUNT(*) FROM conversations")
-    total_sets = cur.fetchone()[0]
-    
-    # Get unique contributors
-    cur.execute("SELECT COUNT(DISTINCT contributor) FROM conversations WHERE contributor IS NOT NULL AND contributor != ''")
-    total_contributors = cur.fetchone()[0]
-    
-    # Get total violations and usage statistics
+    # Combined query for all stats
     cur.execute("""
-        SELECT
-            -- Auto-detected violations (not human verified)
-            SUM(CASE WHEN user_violates_rules = 1 AND needed_human_verification = FALSE THEN 1 ELSE 0 END) as auto_user_violations,
-            SUM(CASE WHEN assistant_violates_rules = 1 AND needed_human_verification = FALSE THEN 1 ELSE 0 END) as auto_assistant_violations,
-            -- Human-verified violations
-            SUM(CASE WHEN user_violates_rules = 1 AND needed_human_verification = TRUE THEN 1 ELSE 0 END) as human_verified_user_violations,
-            SUM(CASE WHEN assistant_violates_rules = 1 AND needed_human_verification = TRUE THEN 1 ELSE 0 END) as human_verified_assistant_violations,
-            -- Usage statistics
-            SUM(prompt_tokens) as total_prompt_tokens,
-            SUM(completion_tokens) as total_completion_tokens,
-            SUM(total_tokens) as total_all_tokens,
-            SUM(input_cost) as total_input_cost,
-            SUM(output_cost) as total_output_cost,
-            SUM(total_cost) as total_all_cost,
-            AVG(latency_ms) as avg_latency,
-            -- Verification status
-            SUM(CASE WHEN needed_human_verification = TRUE THEN 1 ELSE 0 END) as needed_human_verification_count
-        FROM conversations
+        WITH stats AS (
+            SELECT
+                COUNT(*) as total_sets,
+                COUNT(DISTINCT CASE WHEN contributor IS NOT NULL AND contributor != '' THEN contributor END) as total_contributors,
+                SUM(CASE WHEN user_violates_rules = 1 AND needed_human_verification = FALSE THEN 1 ELSE 0 END) as auto_user_violations,
+                SUM(CASE WHEN assistant_violates_rules = 1 AND needed_human_verification = FALSE THEN 1 ELSE 0 END) as auto_assistant_violations,
+                SUM(CASE WHEN user_violates_rules = 1 AND needed_human_verification = TRUE THEN 1 ELSE 0 END) as human_verified_user_violations,
+                SUM(CASE WHEN assistant_violates_rules = 1 AND needed_human_verification = TRUE THEN 1 ELSE 0 END) as human_verified_assistant_violations,
+                SUM(prompt_tokens) as total_prompt_tokens,
+                SUM(completion_tokens) as total_completion_tokens,
+                SUM(total_tokens) as total_all_tokens,
+                SUM(input_cost) as total_input_cost,
+                SUM(output_cost) as total_output_cost,
+                SUM(total_cost) as total_all_cost,
+                AVG(latency_ms) as avg_latency,
+                SUM(CASE WHEN needed_human_verification = TRUE THEN 1 ELSE 0 END) as needed_verification_count
+            FROM conversations
+        )
+        SELECT * FROM stats
     """)
+    
     stats = cur.fetchone()
-    auto_user_violations = stats[0] or 0
-    auto_assistant_violations = stats[1] or 0
-    human_verified_user_violations = stats[2] or 0
-    human_verified_assistant_violations = stats[3] or 0
-    total_prompt_tokens = stats[4] or 0
-    total_completion_tokens = stats[5] or 0
-    total_all_tokens = stats[6] or 0
-    total_input_cost = float(stats[7] or 0)
-    total_output_cost = float(stats[8] or 0)
-    total_all_cost = float(stats[9] or 0)
-    avg_latency = int(stats[10] or 0)
-    needed_verification_count = int(stats[11] or 0)
+    total_sets = stats[0] or 0
+    total_contributors = stats[1] or 0
+    auto_user_violations = stats[2] or 0
+    auto_assistant_violations = stats[3] or 0
+    human_verified_user_violations = stats[4] or 0
+    human_verified_assistant_violations = stats[5] or 0
+    total_prompt_tokens = stats[6] or 0
+    total_completion_tokens = stats[7] or 0
+    total_all_tokens = stats[8] or 0
+    total_input_cost = float(stats[9] or 0)
+    total_output_cost = float(stats[10] or 0)
+    total_all_cost = float(stats[11] or 0)
+    avg_latency = int(stats[12] or 0)
+    needed_verification_count = int(stats[13] or 0)
     
     conn.close()
     
@@ -549,3 +761,224 @@ def get_dataset_stats():
         # Verification status
         "needed_human_verification": needed_verification_count
     }
+
+def create_bounty(title, description, metric, start_date, end_date):
+    """
+    Create a new bounty contest.
+    
+    Args:
+        title: Title of the bounty
+        description: Detailed description of the bounty
+        metric: Metric to track (e.g., 'user_violations', 'assistant_violations')
+        start_date: When the bounty contest starts
+        end_date: When the bounty contest ends
+    
+    Returns:
+        bounty_id: ID of the created bounty
+    """
+    bounty_id = f"bounty_{int(time.time())}"
+    conn = get_connection()
+    cur = conn.cursor()
+    
+    cur.execute('''
+        INSERT INTO bounties (bounty_id, title, description, metric, start_date, end_date)
+        VALUES (%s, %s, %s, %s, %s, %s)
+        RETURNING bounty_id
+    ''', (bounty_id, title, description, metric, start_date, end_date))
+    
+    conn.commit()
+    conn.close()
+    return bounty_id
+def record_donation(amount, use_for, user_id=None, display_name=None, bounty_id=None):
+    """
+    Record a donation and update relevant prize pools.
+    
+    Args:
+        amount: Donation amount
+        use_for: Purpose of donation ('bounty', 'api_costs', etc.)
+        user_id: Optional ID of the donor (None for anonymous)
+        display_name: Optional display name for the donor (None for anonymous)
+        bounty_id: Optional specific bounty to fund
+    """
+    donation_id = f"donation_{int(time.time())}"
+    conn = get_connection()
+    cur = conn.cursor()
+    
+    # Record the donation
+    cur.execute('''
+        INSERT INTO donations (donation_id, user_id, display_name, amount, use_for, bounty_id)
+        VALUES (%s, %s, %s, %s, %s, %s)
+    ''', (donation_id, user_id, display_name, amount, use_for, bounty_id))
+    
+    # If donation is for a specific bounty, update its prize pool
+    if bounty_id and use_for == 'bounty':
+        cur.execute('''
+            UPDATE bounties
+            SET prize_pool_amount = prize_pool_amount + %s,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE bounty_id = %s
+        ''', (amount, bounty_id))
+    
+    conn.commit()
+    conn.close()
+
+@st.cache_data(ttl=3600)  # Cache for 1 hour - increased from 5 minutes since bounties change infrequently
+def get_active_bounties():
+    """
+    Get all active bounties with their current standings.
+    
+    Returns:
+        List of dictionaries containing bounty details and current leaders
+    """
+    conn = get_connection()
+    cur = conn.cursor()
+    
+    cur.execute('''
+        SELECT
+            b.bounty_id,
+            b.title,
+            b.description,
+            b.metric,
+            b.start_date,
+            b.end_date,
+            b.prize_pool_amount,
+            b.status,
+            COALESCE(SUM(d.amount), 0) as total_donations
+        FROM bounties b
+        LEFT JOIN donations d ON b.bounty_id = d.bounty_id
+        WHERE b.status = 'active'
+        AND b.end_date > CURRENT_TIMESTAMP
+        GROUP BY b.bounty_id, b.title, b.description, b.metric,
+                 b.start_date, b.end_date, b.prize_pool_amount, b.status
+        ORDER BY b.end_date ASC
+    ''')
+    
+    bounties = []
+    for row in cur.fetchall():
+        bounty = {
+            'bounty_id': row[0],
+            'title': row[1],
+            'description': row[2],
+            'metric': row[3],
+            'start_date': row[4].isoformat(),
+            'end_date': row[5].isoformat(),
+            'prize_pool_amount': float(row[6]),
+            'status': row[7],
+            'total_donations': float(row[8])
+        }
+        
+        # Get current leaders based on the metric
+        if bounty['metric'] == 'user_violations':
+            cur.execute('''
+                SELECT
+                    contributor,
+                    COUNT(*) as count
+                FROM conversations
+                WHERE user_violates_rules = 1
+                AND needed_human_verification = TRUE
+                AND created_at BETWEEN %s AND %s
+                GROUP BY contributor
+                ORDER BY count DESC
+                LIMIT 3
+            ''', (bounty['start_date'], bounty['end_date']))
+        elif bounty['metric'] == 'assistant_violations':
+            cur.execute('''
+                SELECT
+                    contributor,
+                    COUNT(*) as count
+                FROM conversations
+                WHERE assistant_violates_rules = 1
+                AND needed_human_verification = TRUE
+                AND created_at BETWEEN %s AND %s
+                GROUP BY contributor
+                ORDER BY count DESC
+                LIMIT 3
+            ''', (bounty['start_date'], bounty['end_date']))
+        elif bounty['metric'] == 'verification_accuracy':
+            # Calculate verification accuracy based on alignment with final decisions
+            cur.execute('''
+                WITH verification_stats AS (
+                    SELECT
+                        v.contributor,
+                        COUNT(*) as total_verifications,
+                        SUM(CASE
+                            WHEN (v.vote = TRUE AND c.user_violates_rules = 1) OR
+                                 (v.vote = FALSE AND c.user_violates_rules = 0)
+                            THEN 1
+                            ELSE 0
+                        END) as correct_verifications
+                    FROM human_verifications v
+                    JOIN conversations c ON v.conversation_id = c.conversation_id
+                    WHERE v.created_at BETWEEN %s AND %s
+                    GROUP BY v.contributor
+                    HAVING COUNT(*) >= 10  -- Minimum verifications threshold
+                )
+                SELECT
+                    contributor,
+                    ROUND(CAST(correct_verifications AS NUMERIC) /
+                          NULLIF(total_verifications, 0) * 100, 2) as accuracy
+                FROM verification_stats
+                ORDER BY accuracy DESC
+                LIMIT 3
+            ''', (bounty['start_date'], bounty['end_date']))
+        
+        leaders = []
+        for leader_row in cur.fetchall():
+            leaders.append({
+                'contributor': leader_row[0],
+                'count': leader_row[1]
+            })
+        
+        bounty['current_leaders'] = leaders
+        bounties.append(bounty)
+    
+    conn.close()
+    return bounties
+
+@st.cache_data(ttl=60)  # Cache for 1 minute
+def get_top_donors():
+    """
+    Get the top donors ranked by total donation amount.
+    
+    Returns:
+        List of tuples containing (display_name, total_amount)
+        Anonymous donations are grouped together
+    """
+    conn = get_connection()
+    cur = conn.cursor()
+    
+    cur.execute("""
+        SELECT
+            COALESCE(display_name, 'Anonymous') as donor,
+            SUM(amount) as total_amount
+        FROM donations
+        GROUP BY COALESCE(display_name, 'Anonymous')
+        ORDER BY total_amount DESC
+        LIMIT 10
+    """)
+    
+    results = cur.fetchall()
+    conn.close()
+    return results
+
+def complete_bounty(bounty_id, winner_id):
+    """
+    Mark a bounty as completed and record the winner.
+    
+    Args:
+        bounty_id: ID of the bounty to complete
+        winner_id: ID of the winning user
+    """
+    conn = get_connection()
+    cur = conn.cursor()
+    
+    cur.execute('''
+        UPDATE bounties
+        SET status = 'completed',
+            winner_id = %s,
+            updated_at = CURRENT_TIMESTAMP
+        WHERE bounty_id = %s
+    ''', (winner_id, bounty_id))
+    
+    conn.commit()
+    conn.close()

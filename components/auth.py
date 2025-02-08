@@ -9,8 +9,16 @@ logger = logging.getLogger(__name__)
 
 def get_auth_status() -> Tuple[bool, Optional[str]]:
     """
-    Get the current authentication status and any error message.
-    Returns (is_authenticated, error_message)
+    Retrieve the current authentication status along with any authentication error message.
+
+    This function checks if the user is logged in using Streamlit's experimental authentication user object.
+    When the "development_mode" flag is enabled in Streamlit secrets, the function bypasses normal authentication
+    and returns True.
+
+    Returns:
+        Tuple[bool, Optional[str]]:
+            - is_authenticated (bool): True if the user is authenticated, otherwise False.
+            - error_message (Optional[str]): An error message if any issues occur during authentication; otherwise, None.
     """
     try:
         # Check for development mode first

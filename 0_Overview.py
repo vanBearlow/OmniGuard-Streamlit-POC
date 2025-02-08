@@ -244,6 +244,52 @@ def render_dataset_download() -> None:
         help=f"Download the complete dataset ({result['total_records']:,} records)"
     )
 
+def render_project_info() -> None:
+    st.markdown("---")
+    st.markdown("## Project Costs")
+    st.markdown("""
+    - **Development and Testing**: $25
+    - **API Usage**: See dataset costs above
+    - **Infrastructure**: $0 (Using Streamlit Community Cloud)
+    """)
+
+    st.markdown("## Project Development Time")
+    st.markdown("""
+    - **Start Date**: 2025-02-01
+    - **Current Status**: Beta Testing
+    - **Development Duration**: 1 week
+    - **Testing Phase**: Ongoing
+    """)
+
+    st.markdown("## Instructions for Testing Agents")
+    st.markdown("""
+    1. **Overview Page** (Current)
+       - Review system architecture and configuration
+       - Understand dataset statistics and costs
+    
+    2. **Chat Page** (Most Important)
+       - Test OmniGuard's moderation capabilities
+       - Try various inputs to assess rule enforcement
+       - Note how violations are handled
+    
+    3. **Configuration Page**
+       - Review and modify system prompts
+       - Adjust model settings
+       - Test different configurations
+    
+    4. **Human Verification Page**
+       - See how ambiguous cases are handled
+       - Review flagged content requiring verification
+    
+    5. **Beta Testers Page**
+       - Track your contribution metrics
+       - View testing guidelines
+    
+    6. **Leaderboard**
+       - See top contributors
+       - Track community engagement
+    """)
+
 def main() -> None:
     render_overview()
     render_system_flow()
@@ -256,6 +302,7 @@ def main() -> None:
     render_dataset_stats(stats)
     render_dataset_format()
     render_dataset_download()
+    render_project_info()
 
 if __name__ == "__main__":
     main()

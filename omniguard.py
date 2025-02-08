@@ -3,6 +3,8 @@ import os
 import time
 import streamlit as st
 from openai import OpenAI
+from openai import APIError, RateLimitError
+import requests.exceptions
 from database import save_conversation
 import logging
 from components.init_session_state import init_session_state
@@ -48,6 +50,7 @@ MODEL_COSTS = {
 def calculate_costs(model_name, prompt_tokens, completion_tokens, is_cached=False):
     """Calculate costs based on token usage."""
     if model_name not in MODEL_COSTS:
+        logger.warning(f"Unknown model for cost calculation: {model_name}")
         return None, None, None
     
     costs = MODEL_COSTS[model_name]
@@ -68,16 +71,28 @@ sitename = "OmniGuard"
 def get_api_key():
     """Retrieve the API key based on session configuration."""
     if st.session_state.get("contribute_training_data"):
-        return os.getenv("OPENROUTER_API_KEY")
+        api_key = os.getenv("OPENROUTER_API_KEY")
+        if not api_key:
+            logger.error("OPENROUTER_API_KEY environment variable not set")
+            raise ValueError("OpenRouter API key not configured")
+        return api_key
     else:
-        return st.session_state.get("api_key")
+        api_key = st.session_state.get("api_key")
+        if not api_key:
+            logger.error("No API key found in session state")
+            raise ValueError("API key not configured")
+        return api_key
 
 def get_openai_client():
     """Initialize and return the OpenAI client."""
-    return OpenAI(
-        base_url="https://openrouter.ai/api/v1",
-        api_key=get_api_key()
-    )
+    try:
+        return OpenAI(
+            base_url="https://openrouter.ai/api/v1",
+            api_key=get_api_key()
+        )
+    except Exception as e:
+        logger.error(f"Failed to initialize OpenAI client: {e}")
+        raise
 
 def get_model_params(model_name, is_omniguard=False):
     """Get appropriate parameters based on model type."""
@@ -96,6 +111,23 @@ def get_model_params(model_name, is_omniguard=False):
     return params
 
 def omniguard_check(pending_assistant_response=None):
+    """
+    Perform an OmniGuard evaluation check on the current conversation context.
+
+    This function builds a conversation context from session state messages,
+    optionally includes a pending assistant response, and sends the assembled
+    request to the OpenRouter endpoint via the OpenAI client. It returns the
+    raw OmniGuard response if successful or a dictionary containing error details
+    in case of an exception.
+
+    Args:
+        pending_assistant_response (str, optional): An optional assistant response
+            to include in the OmniGuard evaluation.
+
+    Returns:
+        str or dict: The raw OmniGuard response text if the check is successful;
+            otherwise, a dictionary with an error description.
+    """
     try:
         # Track component timings
         timings = {
@@ -108,27 +140,27 @@ def omniguard_check(pending_assistant_response=None):
         # Initialize OpenRouter client with current session API key using the helper
         client = get_openai_client()
         
-        # Create messages array with system prompt as first message
-        full_messages = [{"role": "system", "content": st.session_state.assistant_system_prompt}]
-        full_messages.extend(st.session_state.messages)
+        from components.conversation_utils import build_conversation_json, format_conversation_context
+        
+        # Build base conversation
+        full_messages = st.session_state.messages.copy()
         
         # If evaluating assistant response, add it to messages
         if pending_assistant_response:
             full_messages.append({"role": "assistant", "content": pending_assistant_response})
-            
+        
+        # Build and format conversation
+        conversation = build_conversation_json(full_messages)
+        conversation_context = format_conversation_context(conversation)
+        
         # Record preparation time
         timings['prep'] = time.time() - timings['start']
         
-        # Format omniguard_evaluation_input with both configuration and input tags
+        # Format omniguard_evaluation_input with configuration
         omniguard_config = st.session_state.omniguard_configuration
-        conversation_json = json.dumps(full_messages, indent=2)
-        
         omniguard_evaluation_input_str = (
             f"<configuration>{omniguard_config}</configuration>"
-            f"<input><![CDATA[{{"
-            f'    "id": "{st.session_state.conversation_id}",'
-            f'    "messages": {conversation_json}'
-            f"}}]]></input>"
+            f"{conversation_context}"
         )
 
         omniguard_evaluation_input = [
@@ -140,16 +172,30 @@ def omniguard_check(pending_assistant_response=None):
         
         # API call timing
         api_start = time.time()
-        response = client.chat.completions.create(
-            extra_headers={
-                "HTTP-Referer": st.session_state.get("site_url", "https://example.com"),
-                "X-Title": st.session_state.get("site_name", sitename),
-            },
-            model=st.session_state.get("selected_omniguard_model", "o3-mini"),
-            messages=omniguard_evaluation_input,
-            response_format={"type": "json_object"},
-            **model_params
-        )
+        try:
+            response = client.chat.completions.create(
+                extra_headers={
+                    "HTTP-Referer": st.session_state.get("site_url", "https://example.com"),
+                    "X-Title": st.session_state.get("site_name", sitename),
+                },
+                model=st.session_state.get("selected_omniguard_model", "o3-mini"),
+                messages=omniguard_evaluation_input,
+                response_format={"type": "json_object"},
+                **model_params
+            )
+        except RateLimitError as e:
+            logger.error(f"Rate limit exceeded: {e}")
+            raise
+        except APIError as e:
+            logger.error(f"OpenAI API error: {e}")
+            raise
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Network error during API call: {e}")
+            raise
+        except Exception as e:
+            logger.error(f"Unexpected error during API call: {e}")
+            raise
+
         timings['api'] = time.time() - api_start
 
         # Process timing start
@@ -178,32 +224,19 @@ def omniguard_check(pending_assistant_response=None):
 
         raw_content = response.choices[0].message.content or ""
 
-        # Attempt JSON parsing
-        try:
-            omniguard_raw_response = json.loads(raw_content)
-        except json.JSONDecodeError:
-            return {
-                "response": {
-                    "action": "UserInputRejection",
-                    "UserInputRejection": "System error - invalid JSON response"
-                }
-            }
-
-        # Validate expected structure
-        if not isinstance(omniguard_raw_response, dict) or "response" not in omniguard_raw_response:
-            return {
-                "response": {
-                    "action": "UserInputRejection",
-                    "UserInputRejection": "System error - safety checks incomplete"
-                }
-            }
+        # Use raw response text directly without JSON parsing
+        omniguard_raw_response = raw_content
 
         # Store OmniGuard response in session state
         st.session_state.omniguard_output_message = omniguard_raw_response
 
         if st.session_state.get("contribute_training_data", False):
-            response_data = omniguard_raw_response.get("response", {})
-            action = response_data.get("action", "")
+            try:
+                parsed_response = json.loads(raw_content)
+                action = parsed_response.get("response", {}).get("action", "")
+            except json.JSONDecodeError as e:
+                logger.error(f"Failed to parse OmniGuard response: {e}")
+                action = ""
             user_violates_rules = (action == "UserInputRejection")
             assistant_violates_rules = (action == "AssistantOutputRejection")
             # Record process timing
@@ -247,13 +280,36 @@ def omniguard_check(pending_assistant_response=None):
             )
         return omniguard_raw_response
 
-    except Exception as e:
-        logger.exception("OmniGuard Error")
-
+    except (RateLimitError, APIError) as e:
+        logger.exception("OpenAI API Error in OmniGuard")
         return {
             "response": {
                 "action": "UserInputRejection",
-                "UserInputRejection": f"OmniGuard safety system unavailable - {e}"
+                "UserInputRejection": f"OmniGuard API error - {str(e)}"
+            }
+        }
+    except requests.exceptions.RequestException as e:
+        logger.exception("Network Error in OmniGuard")
+        return {
+            "response": {
+                "action": "UserInputRejection",
+                "UserInputRejection": f"OmniGuard network error - {str(e)}"
+            }
+        }
+    except json.JSONDecodeError as e:
+        logger.exception("JSON Parsing Error in OmniGuard")
+        return {
+            "response": {
+                "action": "UserInputRejection",
+                "UserInputRejection": f"OmniGuard response parsing error - {str(e)}"
+            }
+        }
+    except Exception as e:
+        logger.exception("Unexpected Error in OmniGuard")
+        return {
+            "response": {
+                "action": "UserInputRejection",
+                "UserInputRejection": f"OmniGuard system error - {str(e)}"
             }
         }
 
@@ -263,23 +319,30 @@ def process_omniguard_result(omniguard_result, user_prompt, context):
     or query the Assistant and verify its response before showing.
     """
     try:
-        if isinstance(omniguard_result, str):
-            omniguard_raw_response = json.loads(omniguard_result)
-        else:
-            omniguard_raw_response = omniguard_result
-
+        omniguard_raw_response = omniguard_result  # treat as raw string
+        try:
+            parsed_response = json.loads(omniguard_raw_response)
+            action = parsed_response.get("response", {}).get("action", "")
+        except json.JSONDecodeError as e:
+            logger.error(f"Failed to parse OmniGuard result: {e}")
+            parsed_response = {}
+            action = ""
         with st.chat_message("assistant"):
             # First check - user message
-            action = omniguard_raw_response.get("response", {}).get("action")
-            user_violates = action != "allow"
+            user_violates = (action != "allow")
             
             if user_violates:
                 # User message rejected
                 st.session_state.rejection_count += 1
-                response_text = (
-                    omniguard_raw_response["response"].get("UserInputRejection")
-                    or "Content blocked for safety reasons."
-                )
+                try:
+                    response_text = (
+                        omniguard_raw_response["response"].get("UserInputRejection")
+                        or "Content blocked for safety reasons."
+                    )
+                except (TypeError, KeyError) as e:
+                    logger.error(f"Error accessing rejection message: {e}")
+                    response_text = "Content blocked for safety reasons."
+                
                 st.markdown(response_text)
                 st.session_state.messages.append({"role": "assistant", "content": response_text})
                 
@@ -300,16 +363,26 @@ def process_omniguard_result(omniguard_result, user_prompt, context):
             
             # Second check - assistant response
             assistant_check = omniguard_check(pending_assistant_response=assistant_response)
-            assistant_action = assistant_check.get("response", {}).get("action")
+            try:
+                assistant_check_parsed = json.loads(assistant_check)
+                assistant_action = assistant_check_parsed.get("response", {}).get("action")
+            except (json.JSONDecodeError, TypeError) as e:
+                logger.error(f"Failed to parse assistant check response: {e}")
+                assistant_action = None
+            
             assistant_violates = assistant_action != "allow"
             
             if assistant_violates:
                 # Assistant response rejected
                 st.session_state.rejection_count += 1
-                response_text = (
-                    assistant_check["response"].get("AssistantOutputRejection")
-                    or "Assistant response blocked for safety reasons."
-                )
+                try:
+                    response_text = (
+                        assistant_check["response"].get("AssistantOutputRejection")
+                        or "Assistant response blocked for safety reasons."
+                    )
+                except (TypeError, KeyError) as e:
+                    logger.error(f"Error accessing assistant rejection message: {e}")
+                    response_text = "Assistant response blocked for safety reasons."
             else:
                 # Both checks passed
                 response_text = assistant_response
@@ -328,10 +401,12 @@ def process_omniguard_result(omniguard_result, user_prompt, context):
                     assistant_output=assistant_response
                 )
 
-    except (json.JSONDecodeError, ValueError) as e:
-        st.error(f"Error parsing OmniGuard result: {e}")
-    except Exception as ex:
-        st.error(f"Unexpected error: {ex}")
+    except json.JSONDecodeError as e:
+        logger.error(f"JSON parsing error in process_omniguard_result: {e}")
+        st.error("Error processing OmniGuard result. Please try again.")
+    except Exception as e:
+        logger.exception("Unexpected error in process_omniguard_result")
+        st.error("An unexpected error occurred. Please try again.")
 
 def fetch_assistant_response(prompt_text):
     """
@@ -367,15 +442,26 @@ def fetch_assistant_response(prompt_text):
         
         # API call timing
         api_start = time.time()
-        response = client.chat.completions.create(
-            extra_headers={
-                "HTTP-Referer": st.session_state.get("site_url", "https://example.com"),
-                "X-Title": st.session_state.get("site_name", sitename),
-            },
-            model=st.session_state.selected_assistant_model,
-            messages=assistant_messages,
-            **model_params
-        )
+        try:
+            response = client.chat.completions.create(
+                extra_headers={
+                    "HTTP-Referer": st.session_state.get("site_url", "https://example.com"),
+                    "X-Title": st.session_state.get("site_name", sitename),
+                },
+                model=st.session_state.selected_assistant_model,
+                messages=assistant_messages,
+                **model_params
+            )
+        except RateLimitError as e:
+            logger.error(f"Rate limit exceeded in fetch_assistant_response: {e}")
+            raise
+        except APIError as e:
+            logger.error(f"OpenAI API error in fetch_assistant_response: {e}")
+            raise
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Network error in fetch_assistant_response: {e}")
+            raise
+        
         timings['api'] = time.time() - api_start
         
         # Process timing start
@@ -443,9 +529,18 @@ def fetch_assistant_response(prompt_text):
         
         return assistant_output
 
+    except RateLimitError as e:
+        logger.exception("Rate limit exceeded")
+        return "Assistant temporarily unavailable due to rate limiting. Please try again in a moment."
+    except APIError as e:
+        logger.exception("OpenAI API Error")
+        return "Assistant temporarily unavailable. Please try again."
+    except requests.exceptions.RequestException as e:
+        logger.exception("Network Error")
+        return "Unable to reach assistant due to network issues. Please check your connection."
     except Exception as e:
-        st.error(f"Assistant error: {e}")
-        return "Assistant unavailable. Please try again."
+        logger.exception("Unexpected Error")
+        return "An unexpected error occurred. Please try again."
 
 def check_rule_violation(report_info, conversation_context):
     """
@@ -462,10 +557,12 @@ def check_rule_violation(report_info, conversation_context):
         }
         
         client = get_openai_client()
-        # Format omniguard_evaluation_input with both configuration and input tags
+        from components.conversation_utils import format_conversation_context
+        
+        # Format omniguard_evaluation_input with configuration and input
         omniguard_evaluation_input_str = (
             f"<configuration>{st.session_state.omniguard_configuration}</configuration>"
-            f"<input><![CDATA[{conversation_context}]]></input>"
+            f"{conversation_context}"  # conversation_context is already properly formatted
         )
         
         prompt = (
@@ -483,15 +580,26 @@ def check_rule_violation(report_info, conversation_context):
         
         # API call timing
         api_start = time.time()
-        response = client.chat.completions.create(
-            extra_headers={
-                "HTTP-Referer": st.session_state.get("site_url", "https://example.com"),
-                "X-Title": st.session_state.get("site_name", sitename),
-            },
-            model=st.session_state.selected_omniguard_model,
-            messages=[{"role": "system", "content": prompt}],
-            **model_params
-        )
+        try:
+            response = client.chat.completions.create(
+                extra_headers={
+                    "HTTP-Referer": st.session_state.get("site_url", "https://example.com"),
+                    "X-Title": st.session_state.get("site_name", sitename),
+                },
+                model=st.session_state.selected_omniguard_model,
+                messages=[{"role": "system", "content": prompt}],
+                **model_params
+            )
+        except RateLimitError as e:
+            logger.error(f"Rate limit exceeded in check_rule_violation: {e}")
+            raise
+        except APIError as e:
+            logger.error(f"OpenAI API error in check_rule_violation: {e}")
+            raise
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Network error in check_rule_violation: {e}")
+            raise
+        
         timings['api'] = time.time() - api_start
         
         # Process timing start
@@ -528,7 +636,11 @@ def check_rule_violation(report_info, conversation_context):
             input_cost = output_cost = total_cost = 0
         
         result_text = response.choices[0].message.content.strip()
-        violation_result = json.loads(result_text)
+        try:
+            violation_result = json.loads(result_text)
+        except json.JSONDecodeError as e:
+            logger.error(f"Failed to parse violation check response: {e}")
+            violation_result = {"input_violates_rules": False, "output_violates_rules": False}
         
         # Record process timing
         timings['process'] = time.time() - process_start
@@ -558,6 +670,16 @@ def check_rule_violation(report_info, conversation_context):
             )
         
         return violation_result
+
+    except RateLimitError as e:
+        logger.exception("Rate limit exceeded in check_rule_violation")
+        return {"input_violates_rules": False, "output_violates_rules": False}
+    except APIError as e:
+        logger.exception("OpenAI API Error in check_rule_violation")
+        return {"input_violates_rules": False, "output_violates_rules": False}
+    except requests.exceptions.RequestException as e:
+        logger.exception("Network Error in check_rule_violation")
+        return {"input_violates_rules": False, "output_violates_rules": False}
     except Exception as e:
-        print(f"Error in check_rule_violation: {e}")
+        logger.exception("Unexpected Error in check_rule_violation")
         return {"input_violates_rules": False, "output_violates_rules": False}
