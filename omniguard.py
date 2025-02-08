@@ -5,18 +5,44 @@ import streamlit as st
 from openai import OpenAI
 from database import save_conversation
 import logging
+from components.init_session_state import init_session_state
+
+# Ensure session state is initialized
+init_session_state()
 
 # Cost per token in USD based on model
 MODEL_COSTS = {
-    "gpt-4o": {"input": 2.50, "cached_input": 1.25, "output": 10.00},
-    "gpt-4o-audio-preview": {"input": 2.50, "output": 10.00},
-    "gpt-4o-realtime-preview": {"input": 5.00, "cached_input": 2.50, "output": 20.00},
-    "gpt-4o-mini": {"input": 0.15, "cached_input": 0.075, "output": 0.60},
-    "gpt-4o-mini-audio-preview": {"input": 0.15, "output": 0.60},
-    "gpt-4o-mini-realtime-preview": {"input": 0.60, "cached_input": 0.30, "output": 2.40},
-    "o1": {"input": 15.00, "cached_input": 7.50, "output": 60.00},
-    "o3-mini": {"input": 1.10, "cached_input": 0.55, "output": 4.40},
-    "o1-mini": {"input": 1.10, "cached_input": 0.55, "output": 4.40}
+    # GPT-4o versions
+    "gpt-4o-2024-08-06": {"input": 2.50, "cached_input": 1.25, "output": 10.00},
+    "gpt-4o-2024-11-20": {"input": 2.50, "cached_input": 1.25, "output": 10.00},
+    "gpt-4o-2024-05-13": {"input": 5.00, "output": 15.00},
+    
+    # GPT-4o-audio-preview versions
+    "gpt-4o-audio-preview-2024-12-17": {"input": 2.50, "output": 10.00},
+    "gpt-4o-audio-preview-2024-10-01": {"input": 2.50, "output": 10.00},
+    
+    # GPT-4o-realtime-preview versions
+    "gpt-4o-realtime-preview-2024-12-17": {"input": 5.00, "cached_input": 2.50, "output": 20.00},
+    "gpt-4o-realtime-preview-2024-10-01": {"input": 5.00, "cached_input": 2.50, "output": 20.00},
+    
+    # GPT-4o-mini versions
+    "gpt-4o-mini-2024-07-18": {"input": 0.15, "cached_input": 0.075, "output": 0.60},
+    
+    # GPT-4o-mini-audio-preview versions
+    "gpt-4o-mini-audio-preview-2024-12-17": {"input": 0.15, "output": 0.60},
+    
+    # GPT-4o-mini-realtime-preview versions
+    "gpt-4o-mini-realtime-preview-2024-12-17": {"input": 0.60, "cached_input": 0.30, "output": 2.40},
+    
+    # O1 versions
+    "o1-2024-12-17": {"input": 15.00, "cached_input": 7.50, "output": 60.00},
+    "o1-preview-2024-09-12": {"input": 15.00, "cached_input": 7.50, "output": 60.00},
+    
+    # O3-mini versions
+    "o3-mini-2025-01-31": {"input": 1.10, "cached_input": 0.55, "output": 4.40},
+    
+    # O1-mini versions
+    "o1-mini-2024-09-12": {"input": 1.10, "cached_input": 0.55, "output": 4.40}
 }
 
 def calculate_costs(model_name, prompt_tokens, completion_tokens, is_cached=False):
@@ -36,7 +62,7 @@ def calculate_costs(model_name, prompt_tokens, completion_tokens, is_cached=Fals
 
 logger = logging.getLogger(__name__)
 
-sitename = "CMS"
+sitename = "OmniGuard"
 
 # --- Helper functions for API key and client initialization ---
 def get_api_key():
@@ -53,12 +79,12 @@ def get_openai_client():
         api_key=get_api_key()
     )
 
-def get_model_params(model_name, is_cms=False):
+def get_model_params(model_name, is_omniguard=False):
     """Get appropriate parameters based on model type."""
     params = {}
     
-    # For CMS, both o1 and o3 are reasoning models
-    if is_cms:
+    # For OmniGuard, both o1 and o3 are reasoning models
+    if is_omniguard:
         params["reasoning_effort"] = st.session_state.get("selected_reasoning", "medium")
     else:
         # For assistant, check model type
@@ -69,7 +95,7 @@ def get_model_params(model_name, is_cms=False):
     
     return params
 
-def CMS(pending_assistant_response=None):
+def omniguard_check(pending_assistant_response=None):
     try:
         # Track component timings
         timings = {
@@ -93,23 +119,24 @@ def CMS(pending_assistant_response=None):
         # Record preparation time
         timings['prep'] = time.time() - timings['start']
         
-        conversation_context = f"""<input>
-            <![CDATA[
-                {{
-                    "id": "{st.session_state.conversation_id}",
-                    "messages": {json.dumps(full_messages, indent=2)}
-                }}
-            ]]>
-        </input>"""
+        # Format omniguard_evaluation_input with both configuration and input tags
+        omniguard_config = st.session_state.omniguard_configuration
+        conversation_json = json.dumps(full_messages, indent=2)
+        
+        omniguard_evaluation_input_str = (
+            f"<configuration>{omniguard_config}</configuration>"
+            f"<input><![CDATA[{{"
+            f'    "id": "{st.session_state.conversation_id}",'
+            f'    "messages": {conversation_json}'
+            f"}}]]></input>"
+        )
 
-        omniguard_config = st.session_state.CMS_configuration
-        cms_evaluation_input = [
-            {"role": "developer", "content": f"<configuration>{omniguard_config}</configuration>"},
-            {"role": "user", "content": conversation_context}
+        omniguard_evaluation_input = [
+            {"role": "developer", "content": omniguard_evaluation_input_str}
         ]
         
         # Get model-specific parameters
-        model_params = get_model_params(st.session_state.selected_cms_model, is_cms=True)
+        model_params = get_model_params(st.session_state.selected_omniguard_model, is_omniguard=True)
         
         # API call timing
         api_start = time.time()
@@ -118,8 +145,8 @@ def CMS(pending_assistant_response=None):
                 "HTTP-Referer": st.session_state.get("site_url", "https://example.com"),
                 "X-Title": st.session_state.get("site_name", sitename),
             },
-            model=st.session_state.get("selected_cms_model", "o3-mini"),
-            messages=cms_evaluation_input,
+            model=st.session_state.get("selected_omniguard_model", "o3-mini"),
+            messages=omniguard_evaluation_input,
             response_format={"type": "json_object"},
             **model_params
         )
@@ -129,9 +156,9 @@ def CMS(pending_assistant_response=None):
         process_start = time.time()
 
         # Store messages in session state instead of displaying directly
-        st.session_state.cms_input_message = cms_evaluation_input
+        st.session_state.omniguard_input_message = omniguard_evaluation_input
 
-        logger.debug("CMS raw response: %s", response.choices[0].message.content)
+        logger.debug("OmniGuard raw response: %s", response.choices[0].message.content)
 
         # Capture complete usage data
         usage_data = {}
@@ -153,7 +180,7 @@ def CMS(pending_assistant_response=None):
 
         # Attempt JSON parsing
         try:
-            cms_raw_response = json.loads(raw_content)
+            omniguard_raw_response = json.loads(raw_content)
         except json.JSONDecodeError:
             return {
                 "response": {
@@ -163,7 +190,7 @@ def CMS(pending_assistant_response=None):
             }
 
         # Validate expected structure
-        if not isinstance(cms_raw_response, dict) or "response" not in cms_raw_response:
+        if not isinstance(omniguard_raw_response, dict) or "response" not in omniguard_raw_response:
             return {
                 "response": {
                     "action": "UserInputRejection",
@@ -171,11 +198,11 @@ def CMS(pending_assistant_response=None):
                 }
             }
 
-        # Store CMS response in session state
-        st.session_state.cms_output_message = cms_raw_response
+        # Store OmniGuard response in session state
+        st.session_state.omniguard_output_message = omniguard_raw_response
 
         if st.session_state.get("contribute_training_data", False):
-            response_data = cms_raw_response.get("response", {})
+            response_data = omniguard_raw_response.get("response", {})
             action = response_data.get("action", "")
             user_violates_rules = (action == "UserInputRejection")
             assistant_violates_rules = (action == "AssistantOutputRejection")
@@ -186,7 +213,7 @@ def CMS(pending_assistant_response=None):
             latency = int((time.time() - timings['start']) * 1000)  # Convert to milliseconds
             
             # Calculate costs with error handling
-            model_name = st.session_state.get("selected_cms_model")
+            model_name = st.session_state.get("selected_omniguard_model")
             is_cached = st.session_state.get("use_cached_input", False)
             
             try:
@@ -204,8 +231,8 @@ def CMS(pending_assistant_response=None):
                 st.session_state.conversation_id,
                 user_violates_rules=user_violates_rules,
                 assistant_violates_rules=assistant_violates_rules,
-                cms_evaluation_input=cms_evaluation_input,
-                cms_raw_response=cms_raw_response,
+                omniguard_evaluation_input=omniguard_evaluation_input,
+                omniguard_raw_response=omniguard_raw_response,
                 model_name=model_name,
                 reasoning_effort=st.session_state.get("selected_reasoning"),
                 prompt_tokens=usage_data.get('prompt_tokens'),
@@ -218,39 +245,39 @@ def CMS(pending_assistant_response=None):
                 usage_data=usage_data,
                 request_timings=timings
             )
-        return cms_raw_response
+        return omniguard_raw_response
 
     except Exception as e:
-        logger.exception("CMS Error")
+        logger.exception("OmniGuard Error")
 
         return {
             "response": {
                 "action": "UserInputRejection",
-                "UserInputRejection": f"CMS safety system unavailable - {e}"
+                "UserInputRejection": f"OmniGuard safety system unavailable - {e}"
             }
         }
 
-def process_CMS_result(CMS_result, user_prompt, context):
+def process_omniguard_result(omniguard_result, user_prompt, context):
     """
-    Based on the CMS response, either show the rejection message (if a violation is found)
+    Based on the OmniGuard response, either show the rejection message (if a violation is found)
     or query the Assistant and verify its response before showing.
     """
     try:
-        if isinstance(CMS_result, str):
-            cms_raw_response = json.loads(CMS_result)
+        if isinstance(omniguard_result, str):
+            omniguard_raw_response = json.loads(omniguard_result)
         else:
-            cms_raw_response = CMS_result
+            omniguard_raw_response = omniguard_result
 
         with st.chat_message("assistant"):
             # First check - user message
-            action = cms_raw_response.get("response", {}).get("action")
+            action = omniguard_raw_response.get("response", {}).get("action")
             user_violates = action != "allow"
             
             if user_violates:
                 # User message rejected
                 st.session_state.rejection_count += 1
                 response_text = (
-                    cms_raw_response["response"].get("UserInputRejection")
+                    omniguard_raw_response["response"].get("UserInputRejection")
                     or "Content blocked for safety reasons."
                 )
                 st.markdown(response_text)
@@ -262,17 +289,17 @@ def process_CMS_result(CMS_result, user_prompt, context):
                         st.session_state.conversation_id,
                         user_violates_rules=True,
                         assistant_violates_rules=False,
-                        cms_evaluation_input=st.session_state.cms_input_message,
-                        cms_raw_response=cms_raw_response
+                        omniguard_evaluation_input=st.session_state.omniguard_input_message,
+                        omniguard_raw_response=omniguard_raw_response
                     )
                 return
 
             # Get assistant response if user message allowed
             with st.spinner("Assistant..."):
-                assistant_response = assistant_query(user_prompt)
+                assistant_response = fetch_assistant_response(user_prompt)
             
             # Second check - assistant response
-            assistant_check = CMS(pending_assistant_response=assistant_response)
+            assistant_check = omniguard_check(pending_assistant_response=assistant_response)
             assistant_action = assistant_check.get("response", {}).get("action")
             assistant_violates = assistant_action != "allow"
             
@@ -296,19 +323,19 @@ def process_CMS_result(CMS_result, user_prompt, context):
                     st.session_state.conversation_id,
                     user_violates_rules=False,  # User message passed first check
                     assistant_violates_rules=assistant_violates,
-                    cms_evaluation_input=st.session_state.cms_input_message,
-                    cms_raw_response=assistant_check,
+                    omniguard_evaluation_input=st.session_state.omniguard_input_message,
+                    omniguard_raw_response=assistant_check,
                     assistant_output=assistant_response
                 )
 
     except (json.JSONDecodeError, ValueError) as e:
-        st.error(f"Error parsing CMS result: {e}")
+        st.error(f"Error parsing OmniGuard result: {e}")
     except Exception as ex:
         st.error(f"Unexpected error: {ex}")
 
-def assistant_query(prompt_text):
+def fetch_assistant_response(prompt_text):
     """
-    When CMS allows the content, this queries the Assistant.
+    When OmniGuard allows the content, this queries the Assistant.
     """
     try:
         # Track component timings
@@ -381,7 +408,7 @@ def assistant_query(prompt_text):
                 is_cached
             )
         except Exception as e:
-            logger.error(f"Cost calculation error in assistant_query: {e}")
+            logger.error(f"Cost calculation error in fetch_assistant_response: {e}")
             input_cost = output_cost = total_cost = 0
         
         # Record process timing
@@ -398,8 +425,8 @@ def assistant_query(prompt_text):
                 st.session_state.conversation_id,
                 user_violates_rules=False,
                 assistant_violates_rules=False,
-                cms_evaluation_input=None,
-                cms_raw_response=None,
+                omniguard_evaluation_input=None,
+                omniguard_raw_response=None,
                 assistant_output=assistant_output,
                 model_name=model_name,
                 reasoning_effort=st.session_state.get("assistant_reasoning"),
@@ -420,7 +447,7 @@ def assistant_query(prompt_text):
         st.error(f"Assistant error: {e}")
         return "Assistant unavailable. Please try again."
 
-def assess_rule_violation(report_info, conversation_context):
+def check_rule_violation(report_info, conversation_context):
     """
     Verify rule violation using full conversation context and report information.
     Returns a JSON object: {"input_violates_rules": bool, "output_violates_rules": bool}
@@ -435,16 +462,21 @@ def assess_rule_violation(report_info, conversation_context):
         }
         
         client = get_openai_client()
+        # Format omniguard_evaluation_input with both configuration and input tags
+        omniguard_evaluation_input_str = (
+            f"<configuration>{st.session_state.omniguard_configuration}</configuration>"
+            f"<input><![CDATA[{conversation_context}]]></input>"
+        )
+        
         prompt = (
             "Verify if any rules were violated using the full conversation context and report details. "
             "Return a JSON object with keys 'input_violates_rules' and 'output_violates_rules', both booleans. True "
-            f"<configuration>{st.session_state.CMS_configuration}</configuration> "
-            f"<input><![CDATA[{conversation_context}]]></input> "
+            f"{omniguard_evaluation_input_str} "
             f"<report>{report_info}</report>"
         )
         
-        # Get model-specific parameters for CMS
-        model_params = get_model_params(st.session_state.selected_cms_model, is_cms=True)
+        # Get model-specific parameters for OmniGuard
+        model_params = get_model_params(st.session_state.selected_omniguard_model, is_omniguard=True)
         
         # Record preparation time
         timings['prep'] = time.time() - timings['start']
@@ -456,7 +488,7 @@ def assess_rule_violation(report_info, conversation_context):
                 "HTTP-Referer": st.session_state.get("site_url", "https://example.com"),
                 "X-Title": st.session_state.get("site_name", sitename),
             },
-            model=st.session_state.selected_cms_model,
+            model=st.session_state.selected_omniguard_model,
             messages=[{"role": "system", "content": prompt}],
             **model_params
         )
@@ -482,7 +514,7 @@ def assess_rule_violation(report_info, conversation_context):
                 }
         
         # Calculate costs with error handling
-        model_name = st.session_state.selected_cms_model
+        model_name = st.session_state.selected_omniguard_model
         is_cached = st.session_state.get("use_cached_input", False)
         try:
             input_cost, output_cost, total_cost = calculate_costs(
@@ -492,7 +524,7 @@ def assess_rule_violation(report_info, conversation_context):
                 is_cached
             )
         except Exception as e:
-            logger.error(f"Cost calculation error in assess_rule_violation: {e}")
+            logger.error(f"Cost calculation error in check_rule_violation: {e}")
             input_cost = output_cost = total_cost = 0
         
         result_text = response.choices[0].message.content.strip()
@@ -510,8 +542,8 @@ def assess_rule_violation(report_info, conversation_context):
                 st.session_state.conversation_id,
                 user_violates_rules=violation_result.get('input_violates_rules', False),
                 assistant_violates_rules=violation_result.get('output_violates_rules', False),
-                cms_evaluation_input=None,
-                cms_raw_response=None,
+                omniguard_evaluation_input=None,
+                omniguard_raw_response=None,
                 model_name=model_name,
                 reasoning_effort=st.session_state.get("selected_reasoning"),
                 prompt_tokens=usage_data.get('prompt_tokens'),
@@ -527,5 +559,5 @@ def assess_rule_violation(report_info, conversation_context):
         
         return violation_result
     except Exception as e:
-        print(f"Error in assess_rule_violation: {e}")
+        print(f"Error in check_rule_violation: {e}")
         return {"input_violates_rules": False, "output_violates_rules": False}

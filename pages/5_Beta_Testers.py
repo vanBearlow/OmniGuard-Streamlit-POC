@@ -13,7 +13,7 @@ def main():
     st.markdown("""
     ## Your Impact on AI Safety
 
-    Thank you for being part of our beta testing community! Your contributions have been invaluable in making OmniGuard a more robust and effective moderation system.
+    Welcome to OmniGuard's distinguished beta testing community. Your expertise and dedication have been instrumental in advancing our mission of creating a more secure AI ecosystem.
     """)
 
     # Display impact metrics
@@ -85,11 +85,11 @@ def main():
     st.markdown("""
     ## Why Your Contribution Matters
 
-    Every test case you've provided helps:
-    - 🛡️ **Strengthen Safety**: Your diverse test scenarios help identify and patch potential vulnerabilities
-    - 🔄 **Improve Accuracy**: Real-world testing helps refine our moderation decisions
-    - 🌐 **Build Trust**: Your feedback ensures OmniGuard remains reliable and transparent
-    - 🚀 **Drive Innovation**: Your edge cases push us to develop better solutions
+    Each contribution advances our collective mission:
+    - 🛡️ **Advancing Security**: Each test scenario strengthens our defense capabilities and enhances system resilience
+    - 🔄 **Enhancing Precision**: Real-world validation drives continuous refinement of our moderation algorithms
+    - 🌐 **Fostering Trust**: Rigorous testing and transparent feedback establish OmniGuard as an industry-leading solution
+    - 🚀 **Pioneering Innovation**: Challenging edge cases drive the development of breakthrough solutions
     
     ## What's Next
 

@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 from human_verification_db import get_connection, init_db as hv_init_db
 from components.auth import get_auth_status
 from database import get_conversation, save_conversation, remove_conversation
+from omniguard import assess_rule_violation
 
 st.set_page_config(page_title="Human Verification", page_icon=":shield:")
 
@@ -122,7 +123,7 @@ def make_final_decision(conversation_id, vote_counts, omni_guard_result):
     
     return decision
 
-def record_vote(conversation_id, user_email, sources):
+def record_vote(conversation_id, user_email, sources, comment=""):
     """
     Record a vote for the given conversation.
     Only logged-in users can vote, and each user can only vote once per conversation.
@@ -156,8 +157,8 @@ def record_vote(conversation_id, user_email, sources):
                 """, (user_vote, assistant_vote, no_rule_vote, conversation_id)
             )
             cursor.execute(
-                "INSERT INTO flagged_votes (conversation_id, user_email) VALUES (%s, %s)",
-                (conversation_id, user_email)
+                "INSERT INTO flagged_votes (conversation_id, user_email, decision_comment) VALUES (%s, %s, %s)",
+                (conversation_id, user_email, comment)
             )
             conn.commit()
 
@@ -180,8 +181,6 @@ def record_vote(conversation_id, user_email, sources):
 
                 # Process results if vote threshold is reached
                 if total_votes >= 100:
-                    from CMS import assess_rule_violation
-
                     # Build vote counts
                     vote_counts = {
                         "user_violation_votes": user_votes,
@@ -250,17 +249,17 @@ def display_conversation(conv):
         st.markdown("### Verify Reported Violations")
         
         # Show what was reported with checkboxes pre-filled based on reports
-        st.markdown("Please review the conversation and confirm if violations are present:")
+        st.markdown("Conduct a thorough analysis of the conversation to validate reported concerns:")
         
         if reported_user_violation:
-            st.info("🔍 This conversation was reported for User violations")
+            st.info("🔍 Case includes reported User policy violations")
         if reported_assistant_violation:
-            st.info("🔍 This conversation was reported for Assistant violations")
+            st.info("🔍 Case includes reported Assistant policy violations")
             
-        st.markdown("Select all that apply:")
-        user_rule = st.checkbox("Confirm User Violation", value=reported_user_violation)
-        assistant_rule = st.checkbox("Confirm Assistant Violation", value=reported_assistant_violation)
-        no_rule = st.checkbox("No Violations Found (conversation is safe)", value=not (reported_user_violation or reported_assistant_violation))
+        st.markdown("Professional Assessment (select all applicable findings):")
+        user_rule = st.checkbox("Confirmed User Policy Violation", value=reported_user_violation)
+        assistant_rule = st.checkbox("Confirmed Assistant Policy Violation", value=reported_assistant_violation)
+        no_rule = st.checkbox("Verified Safe - No Policy Violations Present", value=not (reported_user_violation or reported_assistant_violation))
         sources = []
         if no_rule:
             sources.append("No Rule Violations")
@@ -268,13 +267,15 @@ def display_conversation(conv):
             sources.append("User")
         if assistant_rule:
             sources.append("Assistant")
+            
+        comment = st.text_area("Professional Analysis Notes (optional)", "")
         vote_submit = st.form_submit_button("Submit")
         if vote_submit:
             is_authenticated, _ = get_auth_status()
             if not is_authenticated:
                 st.error("Please log in to vote.")
             else:
-                vote_result = record_vote(conversation_id, st.experimental_user.email, sources)
+                vote_result = record_vote(conversation_id, st.experimental_user.email, sources, comment)
                 if vote_result == True:
                     st.success("Vote recorded successfully")
                 elif vote_result == "already_voted":
@@ -299,13 +300,13 @@ def main():
             """
             # Human Verification Dashboard
 
-            This dashboard shows conversations that have been reported for potential rule violations. Each conversation shows:
+            Welcome to the Human Verification Dashboard, where expert reviewers assess and validate potential policy violations. Each case presents:
             
-            1. What was initially reported (User/Assistant violations)
-            2. The conversation content and configuration
-            3. Current voting results
+            1. Initial violation reports (User/Assistant interactions)
+            2. Complete conversation context and system configuration
+            3. Current verification status
             
-            Your role is to verify if the reported violations are present.
+            As a verification specialist, your role is to conduct thorough assessments of reported incidents.
 
             - **Voting:** You can confirm reported violations or mark the conversation as safe
             - **Final Decision:** Made after 100 total votes, considering both the initial report and verification results""")

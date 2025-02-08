@@ -2,14 +2,14 @@ import uuid
 import streamlit as st
 import logging
 from dotenv import load_dotenv
-from prompts import CMS_configuration, assistant_system_prompt
+from prompts import omniguard_configuration, assistant_system_prompt
 from database import save_conversation, init_db, get_dataset_stats
-from CMS import CMS, process_CMS_result, assess_rule_violation
+from omniguard import omniguard_check, process_omniguard_result, assess_rule_violation
 
 init_db()
 load_dotenv()
 
-st.set_page_config(page_title="CMS Chat", page_icon=":shield:")
+st.set_page_config(page_title="OmniGuard Chat", page_icon=":shield:")
 
 def generate_conversation_id(turn_number=1):
     if "base_conversation_id" not in st.session_state:
@@ -41,8 +41,8 @@ def init_session_state():
         st.session_state.conversation_id = generate_conversation_id(st.session_state.turn_number)
     
     # Configuration
-    if "CMS_configuration" not in st.session_state:
-        st.session_state.CMS_configuration = CMS_configuration
+    if "omniguard_configuration" not in st.session_state:
+        st.session_state.omniguard_configuration = omniguard_configuration
     if "assistant_system_prompt" not in st.session_state:
         st.session_state.assistant_system_prompt = assistant_system_prompt
     
@@ -59,10 +59,10 @@ def init_session_state():
         update_conversation_context()
     
     # Message Display State
-    if "cms_input_message" not in st.session_state:
-        st.session_state.cms_input_message = None
-    if "cms_output_message" not in st.session_state:
-        st.session_state.cms_output_message = None
+    if "omniguard_input_message" not in st.session_state:
+        st.session_state.omniguard_input_message = None
+    if "omniguard_output_message" not in st.session_state:
+        st.session_state.omniguard_output_message = None
     if "assistant_messages" not in st.session_state:
         st.session_state.assistant_messages = None
 
@@ -98,7 +98,7 @@ def setup_sidebar():
             submitted = st.form_submit_button("Submit Report")
             if submitted:
                 conversation_context = st.session_state.conversation_context
-                report_info = f"Configuration: {st.session_state.CMS_configuration}. Sources: {', '.join(sources)}"
+                report_info = f"Configuration: {st.session_state.omniguard_configuration}. Sources: {', '.join(sources)}"
                 violation_result = assess_rule_violation(report_info, conversation_context)
                 st.write("Violation assessment result:", violation_result)
                 if st.session_state.get("contribute_training_data", False):
@@ -125,15 +125,16 @@ def process_user_message(user_input):
     with st.chat_message("user"):
         st.markdown(user_input)
     try:
-        with st.spinner("CMS..."):
-            CMS_response = CMS()
+        with st.spinner("OmniGuard..."):
+            omniguard_response = omniguard_check()
     except Exception as ex:
-        st.error(f"Error calling CMS: {ex}")
-        logging.exception("Exception occurred during CMS call")
-        CMS_response = {"response": {"action": "UserInputRejection", "UserInputRejection": "Safety system unavailable - please try again"}}
+        st.error(f"Error calling OmniGuard: {ex}")
+        logging.exception("Exception occurred during OmniGuard call")
+        omniguard_response = {"response": {"action": "UserInputRejection", "UserInputRejection": "Safety system unavailable - please try again"}}
     last_msg = st.session_state.messages[-1] if st.session_state.messages else {}
     context = f"{last_msg['role']}: {last_msg['content']}" if last_msg else ""
-    process_CMS_result(CMS_response, user_input, context)
+    process_omniguard_result(omniguard_response, user_input, context)
+
 def main():
     init_session_state()
     if st.session_state.get("contribute_training_data") is False and not st.session_state.get("api_key"):
@@ -145,23 +146,23 @@ def main():
     # Display rejection stats in sidebar
     stats = get_dataset_stats()
     st.sidebar.markdown("---")
-    st.sidebar.markdown("### Violation Statistics")
+    st.sidebar.markdown("### Rejection Statistics")
     
-    # Display auto-detected and human-verified violations
+    # Display auto-detected and human-verified rejections
     st.sidebar.markdown(f"""
-    | Role | Auto-Detected | Human-Verified | Total |
-    |------|--------------|----------------|-------|
+    | Role | Auto-Rejections | Human-Verified | Total |
+    |------|----------------|----------------|-------|
     | User | `{stats['user_violations']}` | `{stats['human_verified_user_violations']}` | `{stats['total_user_violations']}` |
     | Assistant | `{stats['assistant_violations']}` | `{stats['human_verified_assistant_violations']}` | `{stats['total_assistant_violations']}` |
     """, help="""
-    This table shows rule violation statistics:
+    This table shows rule rejection statistics:
     
-    - Auto-Detected: Violations automatically identified by the OmniGuard
-    - Human-Verified: Violations that have been manually confirmed by human reviewers
-    - Total: Combined count of both auto-detected and human-verified violations
+    - Auto-Rejections: Messages automatically rejected by OmniGuard
+    - Human-Verified: Rejections that have been manually confirmed by human reviewers
+    - Total: Combined count of both auto-rejected and human-verified rejections
     
-    For each role (User/Assistant), we track violations to maintain safety and improve the system's accuracy. A higher number of human-verified violations may indicate areas where the automatic detection needs improvement.""")
-    # help needs to be wrritten better. this sucks at explaining the stats.
+    For each role (User/Assistant), we track rejections to maintain safety and improve the system's accuracy. A higher number of human-verified rejections may indicate areas where the automatic detection needs improvement.""")
+    
     # Display verification queue status
     if stats['needed_human_verification'] > 0:
         st.sidebar.warning(f"🔍 {stats['needed_human_verification']} conversations need human verification")
@@ -172,13 +173,13 @@ def main():
     if user_input:  # st.chat_input already returns a string or None
         process_user_message(user_input)
     
-    with st.expander("Message to CMS", expanded=True):
-        if st.session_state.cms_input_message:
-            st.json(st.session_state.cms_input_message)
+    with st.expander("Message to OmniGuard", expanded=True):
+        if st.session_state.omniguard_input_message:
+            st.json(st.session_state.omniguard_input_message)
         
-    with st.expander("Message from CMS", expanded=True):
-        if st.session_state.cms_output_message:
-            st.json(st.session_state.cms_output_message)
+    with st.expander("Message from OmniGuard", expanded=True):
+        if st.session_state.omniguard_output_message:
+            st.json(st.session_state.omniguard_output_message)
         
     with st.expander("Messages to Assistant", expanded=True):
         if st.session_state.assistant_messages:
@@ -186,4 +187,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

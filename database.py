@@ -7,44 +7,87 @@ import psycopg2
 import json
 import streamlit as st
 from dotenv import load_dotenv
+from datetime import datetime, timezone
+import time
+import logging
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # Load environment variables for local development
 load_dotenv()
 
-def get_connection():
-    try:
-        # Try to get credentials from Streamlit secrets first
+def get_connection_with_retry(max_retries=3, retry_delay=1):
+    """Get database connection with retry logic"""
+    last_error = None
+    for attempt in range(max_retries):
         try:
-            host = st.secrets["postgres"]["host"]
-            port = st.secrets["postgres"]["port"]
-            user = st.secrets["postgres"]["user"]
-            password = st.secrets["postgres"]["password"]
-            database = st.secrets["postgres"]["database"]
-        except (KeyError, AttributeError):
-            # Fall back to environment variables for local development
-            host = os.getenv("RDS_HOST")
-            port = int(os.getenv("RDS_PORT", "5432"))
-            user = os.getenv("RDS_USER")
-            password = os.getenv("RDS_PASSWORD")
-            database = os.getenv("RDS_DATABASE")
+            # Try to get credentials from Streamlit secrets first
+            try:
+                host = st.secrets["postgres"]["host"]
+                port = st.secrets["postgres"]["port"]
+                user = st.secrets["postgres"]["user"]
+                password = st.secrets["postgres"]["password"]
+                database = st.secrets["postgres"]["database"]
+                logger.info(f"Using database credentials from secrets (attempt {attempt + 1})")
+            except (KeyError, AttributeError):
+                # Fall back to environment variables for local development
+                host = os.getenv("RDS_HOST")
+                port = int(os.getenv("RDS_PORT", "5432"))
+                user = os.getenv("RDS_USER")
+                password = os.getenv("RDS_PASSWORD")
+                database = os.getenv("RDS_DATABASE")
+                logger.info(f"Using database credentials from environment (attempt {attempt + 1})")
 
-        return psycopg2.connect(
-            host=host,
-            port=port,
-            user=user,
-            password=password,
-            database=database,
-            sslmode="prefer"
-        )
-    except psycopg2.Error as e:
-        print(f"Database connection error: {e}")
-        raise
+            conn = psycopg2.connect(
+                host=host,
+                port=port,
+                user=user,
+                password=password,
+                database=database,
+                sslmode="prefer",
+                connect_timeout=10
+            )
+            logger.info("Database connection successful")
+            return conn
+        except Exception as e:
+            last_error = e
+            logger.warning(f"Database connection attempt {attempt + 1} failed: {str(e)}")
+            if attempt < max_retries - 1:
+                time.sleep(retry_delay)
+            
+    logger.error(f"All database connection attempts failed: {str(last_error)}")
+    raise last_error
+
+def get_connection():
+    """
+    Backwards compatible connection function that uses retry logic
+    """
+    return get_connection_with_retry()
 
 def init_db():
     conn = get_connection()
     cur = conn.cursor()
     
     # Create users table
+    
+    # Add performance indexes
+    cur.execute("""
+        CREATE INDEX IF NOT EXISTS idx_conversations_contributor
+        ON conversations(contributor);
+    """)
+    
+    cur.execute("""
+        CREATE INDEX IF NOT EXISTS idx_conversations_verification
+        ON conversations(needed_human_verification);
+    """)
+    
+    cur.execute("""
+        CREATE INDEX IF NOT EXISTS idx_conversations_contributor_verification
+        ON conversations(contributor, needed_human_verification);
+    """)
+    
     cur.execute(
         '''CREATE TABLE IF NOT EXISTS users (
             user_id TEXT PRIMARY KEY,
@@ -71,12 +114,12 @@ def init_db():
             ADD COLUMN last_updated TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
         """)
     
-    # Create conversations table
+    # Create conversations table with updated column names
     cur.execute(
         '''CREATE TABLE IF NOT EXISTS conversations (
             conversation_id TEXT PRIMARY KEY,
-            cms_evaluation_input TEXT,
-            cms_raw_response TEXT,
+            omniguard_evaluation_input TEXT,
+            omniguard_raw_response TEXT,
             assistant_output TEXT,
             user_violates_rules INTEGER,
             assistant_violates_rules INTEGER,
@@ -95,14 +138,23 @@ def init_db():
             request_timings JSONB DEFAULT '{}'
         )'''
     )
+    
     # Use PostgreSQL-compatible schema inspection
     cur.execute("SELECT column_name FROM information_schema.columns WHERE table_name = 'conversations';")
     columns = [row[0] for row in cur.fetchall()]
     
-    if "cms_evaluation_input" not in columns:
-        cur.execute("ALTER TABLE conversations ADD COLUMN cms_evaluation_input TEXT")
-    if "cms_raw_response" not in columns:
-        cur.execute("ALTER TABLE conversations ADD COLUMN cms_raw_response TEXT")
+    # Handle column renames from cms_* to omniguard_*
+    if "cms_evaluation_input" in columns and "omniguard_evaluation_input" not in columns:
+        cur.execute("ALTER TABLE conversations ADD COLUMN omniguard_evaluation_input TEXT")
+        cur.execute("UPDATE conversations SET omniguard_evaluation_input = cms_evaluation_input")
+        cur.execute("ALTER TABLE conversations DROP COLUMN cms_evaluation_input")
+    
+    if "cms_raw_response" in columns and "omniguard_raw_response" not in columns:
+        cur.execute("ALTER TABLE conversations ADD COLUMN omniguard_raw_response TEXT")
+        cur.execute("UPDATE conversations SET omniguard_raw_response = cms_raw_response")
+        cur.execute("ALTER TABLE conversations DROP COLUMN cms_raw_response")
+    
+    # Add any missing columns
     if "assistant_output" not in columns:
         cur.execute("ALTER TABLE conversations ADD COLUMN assistant_output TEXT")
     if "user_violates_rules" not in columns:
@@ -137,18 +189,44 @@ def init_db():
     conn.commit()
     conn.close()
 
-def get_all_conversations(export_format="jsonl"):
+@st.cache_data(ttl=1800)  # Cache for 30 minutes
+def get_all_conversations(export_format="jsonl", page_size=1000, page=1):
+    """
+    Get all conversations with pagination support.
+    
+    Args:
+        export_format: Format of the output ("jsonl" or "json")
+        page_size: Number of records per page
+        page: Page number (1-based)
+    
+    Returns:
+        Tuple of (data, total_pages)
+        - data: Formatted conversation data
+        - total_pages: Total number of pages available
+    
+    Note:
+        Results are cached for 30 minutes to improve performance
+    """
     conn = get_connection()
     cur = conn.cursor()
+    
+    # Get total count for pagination
+    cur.execute("SELECT COUNT(*) FROM conversations")
+    total_records = cur.fetchone()[0]
+    total_pages = (total_records + page_size - 1) // page_size
+    
+    # Get paginated data with updated column names
     cur.execute("""
-        SELECT conversation_id, cms_evaluation_input, cms_raw_response,
+        SELECT conversation_id, omniguard_evaluation_input, omniguard_raw_response,
                assistant_output, user_violates_rules, assistant_violates_rules,
                model_name, reasoning_effort, contributor, created_at,
                prompt_tokens, completion_tokens, total_tokens,
                input_cost, output_cost, total_cost, latency_ms,
                needed_human_verification
         FROM conversations
-    """)
+        ORDER BY created_at DESC
+        LIMIT %s OFFSET %s
+    """, (page_size, (page - 1) * page_size))
     rows = cur.fetchall()
     conn.close()
     if export_format == "jsonl":
@@ -156,11 +234,11 @@ def get_all_conversations(export_format="jsonl"):
         for row in rows:
             results.append({
                 "conversation_id": row[0],
-                "cms_evaluation_input": {
+                "omniguard_evaluation_input": {
                     "configuration": row[1].split("<configuration>")[1].split("</configuration>")[0] if row[1] and "<configuration>" in row[1] else "",
                     "conversation": row[1].split("<input>")[1].split("</input>")[0] if row[1] and "<input>" in row[1] else ""
                 } if row[1] else None,
-                "cms_raw_response": json.loads(row[2]) if row[2] else None,
+                "omniguard_raw_response": json.loads(row[2]) if row[2] else None,
                 "assistant_output": row[3],
                 "user_violates_rules": bool(row[4]),
                 "assistant_violates_rules": bool(row[5]),
@@ -177,13 +255,21 @@ def get_all_conversations(export_format="jsonl"):
                 "latency_ms": row[16],
                 "needed_human_verification": bool(row[17]) if row[17] is not None else False
             })
-        return "\n".join(json.dumps(conv) for conv in results)
+        data = "\n".join(json.dumps(conv) for conv in results)
     else:
-        return json.dumps(rows)
+        data = json.dumps(results)
+    
+    return {
+        "data": data,
+        "total_pages": total_pages,
+        "current_page": page,
+        "page_size": page_size,
+        "total_records": total_records
+    }
 
 def save_conversation(conversation_id, user_violates_rules=False,
-                     assistant_violates_rules=False, contributor="", cms_evaluation_input=None,
-                     cms_raw_response=None, assistant_output=None, model_name=None,
+                     assistant_violates_rules=False, contributor="", omniguard_evaluation_input=None,
+                     omniguard_raw_response=None, assistant_output=None, model_name=None,
                      reasoning_effort=None, prompt_tokens=None, completion_tokens=None,
                      total_tokens=None, input_cost=None, output_cost=None, total_cost=None,
                      latency_ms=None, needed_human_verification=False, usage_data=None,
@@ -193,7 +279,7 @@ def save_conversation(conversation_id, user_violates_rules=False,
     cur.execute(
         """
         INSERT INTO conversations
-            (conversation_id, cms_evaluation_input, cms_raw_response, assistant_output,
+            (conversation_id, omniguard_evaluation_input, omniguard_raw_response, assistant_output,
              user_violates_rules, assistant_violates_rules,
              model_name, reasoning_effort, contributor,
              prompt_tokens, completion_tokens, total_tokens,
@@ -202,8 +288,8 @@ def save_conversation(conversation_id, user_violates_rules=False,
         VALUES
             (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         ON CONFLICT (conversation_id) DO UPDATE
-            SET cms_evaluation_input = EXCLUDED.cms_evaluation_input,
-                cms_raw_response = EXCLUDED.cms_raw_response,
+            SET omniguard_evaluation_input = EXCLUDED.omniguard_evaluation_input,
+                omniguard_raw_response = EXCLUDED.omniguard_raw_response,
                 assistant_output = EXCLUDED.assistant_output,
                 user_violates_rules = EXCLUDED.user_violates_rules,
                 assistant_violates_rules = EXCLUDED.assistant_violates_rules,
@@ -223,15 +309,19 @@ def save_conversation(conversation_id, user_violates_rules=False,
         """,
         (
             conversation_id,
-            (f"""<input>
-                <![CDATA[
+            # Format omniguard_evaluation_input with both configuration and input tags
+            (lambda x: (
+                x if isinstance(x, str) else
+                f"""<configuration>{st.session_state.omniguard_configuration}</configuration>
+                <input><![CDATA[
                     {{
                         "id": "{conversation_id}",
-                        "messages": {json.dumps(cms_evaluation_input, indent=2) if cms_evaluation_input else "[]"}
+                        "messages": {json.dumps(x, indent=2) if x else "[]"}
                     }}
                 ]]>
-            </input>""") if cms_evaluation_input else None,
-            json.dumps(cms_raw_response) if cms_raw_response else None,
+                </input>"""
+            ))(omniguard_evaluation_input) if omniguard_evaluation_input else None,
+            json.dumps(omniguard_raw_response) if omniguard_raw_response else None,
             assistant_output,
             1 if user_violates_rules else 0,
             1 if assistant_violates_rules else 0,
@@ -262,7 +352,7 @@ def get_conversation(conversation_id):
     cur = conn.cursor()
     cur.execute(
         """
-        SELECT conversation_id, cms_evaluation_input, cms_raw_response,
+        SELECT conversation_id, omniguard_evaluation_input, omniguard_raw_response,
                assistant_output, user_violates_rules, assistant_violates_rules,
                model_name, reasoning_effort, contributor, created_at,
                prompt_tokens, completion_tokens, total_tokens,
@@ -278,11 +368,11 @@ def get_conversation(conversation_id):
     if result:
         return {
             "conversation_id": result[0],
-            "cms_evaluation_input": {
+            "omniguard_evaluation_input": {
                 "configuration": result[1].split("<configuration>")[1].split("</configuration>")[0] if result[1] and "<configuration>" in result[1] else "",
                 "conversation": result[1].split("<input>")[1].split("</input>")[0] if result[1] and "<input>" in result[1] else ""
             } if result[1] else None,
-            "cms_raw_response": json.loads(result[2]) if result[2] else None,
+            "omniguard_raw_response": json.loads(result[2]) if result[2] else None,
             "assistant_output": result[3],
             "user_violates_rules": bool(result[4]),
             "assistant_violates_rules": bool(result[5]),
@@ -314,6 +404,7 @@ def remove_conversation(conversation_id):
     conn.commit()
     conn.close()
 
+@st.cache_data(ttl=600)  # Cache for 10 minutes
 def get_leaderboard_stats():
     """
     Get leaderboard statistics for contributors, showing their effectiveness in identifying harmful prompts
@@ -321,6 +412,9 @@ def get_leaderboard_stats():
     
     Returns:
         List of dictionaries containing contributor stats
+        
+    Note:
+        Results are cached for 10 minutes to improve performance
     """
     conn = get_connection()
     cur = conn.cursor()
@@ -372,10 +466,17 @@ def get_leaderboard_stats():
     conn.close()
     return results
 
+@st.cache_data(ttl=300)  # Cache for 5 minutes
 def get_dataset_stats():
     """
     Get statistics about the dataset including total sets, contributors,
     and violations handled for both user and assistant.
+    
+    Returns:
+        Dictionary containing dataset statistics
+        
+    Note:
+        Results are cached for 5 minutes to improve performance
     """
     conn = get_connection()
     cur = conn.cursor()
@@ -448,4 +549,3 @@ def get_dataset_stats():
         # Verification status
         "needed_human_verification": needed_verification_count
     }
-

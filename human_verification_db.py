@@ -86,8 +86,9 @@ def init_db():
     cur.execute(
         '''CREATE TABLE IF NOT EXISTS flagged_votes (
             conversation_id TEXT,
-            api_key TEXT,
-            PRIMARY KEY (conversation_id, api_key)
+            user_email TEXT,
+            decision_comment TEXT,
+            PRIMARY KEY (conversation_id, user_email)
         )'''
     )
     conn.commit()

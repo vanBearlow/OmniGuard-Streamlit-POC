@@ -1,10 +1,13 @@
 import streamlit as st
-from prompts import CMS_configuration
+from prompts import omniguard_configuration
 from database import get_all_conversations, init_db, get_dataset_stats
 from typing import Dict, Any
 from components.auth import render_auth_status
+from components.init_session_state import init_session_state
+from components.api_balance import display_api_balance
 
 init_db()
+init_session_state()
 
 st.set_page_config(page_title="OmniGuard", page_icon=":shield:") #never use layout="wide"
 
@@ -12,19 +15,19 @@ st.set_page_config(page_title="OmniGuard", page_icon=":shield:") #never use layo
 render_auth_status()
 
 def render_overview() -> None:
-    st.title("OmniGuard - a Conversation Moderation System (CMS)")
+    st.title("OmniGuard - Conversation Moderation System")
     
     st.markdown("""
     ## 1. Component Overview
 
-    - **OmniGuard** is a reasoning based moderation system for text-based LLM interactions.
+    - **OmniGuard** is a reasoning based conversation moderation system for text-based LLM interactions.
     - It continuously runs rule violation assessment for each turn of user and assistant messages against a configurable set of content rules.
     - OmniGuard actively sanitizes minor violations and probes for clarification in ambiguous cases, thereby preserving an engaging and meaningful dialogue while upholding safety standards.
-    - The system effectively mitigates the majority of potential violations and attacks through its comprehensive rule set and reasoning-based approach. Your contributions can make a real difference. **By sharing your insights and test cases, you'll help shape a safer, more robust AI ecosystem that benefits EVERYONE.**
+    - The system effectively mitigates the majority of potential violations and attacks through its comprehensive rule set and reasoning-based approach. Together, we're building a safer, more robust AI ecosystem. Each contribution strengthens our collective defense against emerging threats, benefiting the entire AI community.
     """)
 
     st.markdown("""
-    **Disclaimer:** This system is designed to serve as a robust moderation layer rather than a comprehensive AI safety solution. OmniGuard segregates safety processes from the assistant's primary functions, ensuring that core operations remain performant while content is evaluated in real time.
+    **Disclaimer:** OmniGuard provides enterprise-grade content moderation while maintaining optimal performance through strategic process segregation. The system's architecture ensures real-time content evaluation without impacting core operational efficiency.
     """)
 
 def render_system_flow() -> None:
@@ -67,7 +70,7 @@ def render_configuration_details() -> None:
     """)
     
     with st.expander("Default Configuration:"):
-        st.code(CMS_configuration, language="xml")
+        st.code(omniguard_configuration, language="xml")
         st.write("`4111 Tokens`")
 
 def render_format_details() -> None:
@@ -164,7 +167,7 @@ def render_dataset_format() -> None:
         ```json
         {
           "conversation_id": "Unique identifier for this evaluation instance",
-          "cms_evaluation_input": {
+          "omniguard_evaluation_input": {
             "configuration": "<configuration>Safety configuration with rules and instructions</configuration>",
             "conversation": "<input><![CDATA[{
               \\"id\\": \\"string\\",
@@ -175,7 +178,7 @@ def render_dataset_format() -> None:
               ]
             }]]></input>"
           },
-          "cms_raw_response": {
+          "omniguard_raw_response": {
             "conversation_id": "string",
             "analysisSummary": "Short note on triggered rules or 'No violations'.",
             "response": {
@@ -184,7 +187,7 @@ def render_dataset_format() -> None:
               "AssistantOutputRejection": "string"
             }
           },
-          "assistant_output": "Final response from assistant (if CMS allowed the content)",
+          "assistant_output": "Final response from assistant (if OmniGuard allowed the content)",
           "user_violates_rules": true,
           "assistant_violates_rules": false,
           "model_name": "Model used for OmniGuard evaluation",
@@ -204,12 +207,41 @@ def render_dataset_format() -> None:
         """)
 
 def render_dataset_download() -> None:
-    training_data_jsonl = get_all_conversations(export_format="jsonl")
+    # Initialize download progress
+    progress_placeholder = st.empty()
+    
+    # Get first page to get total pages
+    result = get_all_conversations(export_format="jsonl", page=1)
+    total_pages = result["total_pages"]
+    
+    if total_pages == 0:
+        st.info("No data available for download.")
+        return
+    
+    # Collect all pages
+    all_data = []
+    progress_bar = st.progress(0)
+    
+    for page in range(1, total_pages + 1):
+        progress_placeholder.text(f"Preparing download... Page {page} of {total_pages}")
+        result = get_all_conversations(export_format="jsonl", page=page)
+        all_data.append(result["data"])
+        progress_bar.progress(page / total_pages)
+    
+    # Combine all pages
+    complete_data = "\n".join(all_data)
+    
+    # Clear progress indicators
+    progress_placeholder.empty()
+    progress_bar.empty()
+    
+    # Show download button
     st.download_button(
-        label="Download Dataset",
-        data=training_data_jsonl,
+        label="Download Complete Dataset",
+        data=complete_data,
         file_name="training_data.jsonl",
-        mime="application/jsonl"
+        mime="application/jsonl",
+        help=f"Download the complete dataset ({result['total_records']:,} records)"
     )
 
 def main() -> None:
