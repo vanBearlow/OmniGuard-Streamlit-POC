@@ -168,15 +168,19 @@ def init_db():
     ''')
     
     # Schedule refresh (requires pg_cron extension)
-    try:
-        cur.execute('''
-            SELECT cron.schedule('0 * * * *', $$
-                SELECT refresh_mv_leaderboard_stats();
-            $$);
-        ''')
-    except Exception as e:
-        logger.warning(f"Could not schedule materialized view refresh: {str(e)}")
-        logger.info("Manual refresh of mv_leaderboard_stats will be required")
+    cur.execute("SELECT extname FROM pg_extension WHERE extname = 'pg_cron';")
+    if cur.fetchone() is not None:
+        try:
+            cur.execute('''
+                SELECT cron.schedule('0 * * * *', $$
+                    SELECT refresh_mv_leaderboard_stats();
+                $$);
+            ''')
+            logger.info("Materialized view refresh schedule set successfully.")
+        except Exception as e:
+            logger.warning(f"Error scheduling materialized view refresh: {str(e)}")
+    else:
+        logger.info("pg_cron extension not found. Manual refresh of mv_leaderboard_stats will be required.")
     
     # Create query_stats table for monitoring
     cur.execute('''
@@ -325,10 +329,21 @@ def init_db():
             output_cost NUMERIC(10,4),
             total_cost NUMERIC(10,4),
             latency_ms INTEGER,
-            usage_data JSONB DEFAULT '{}',
             request_timings JSONB DEFAULT '{}'
         )'''
     )
+    
+    # Add usage_data column if it doesn't exist
+    cur.execute("""
+        SELECT column_name
+        FROM information_schema.columns
+        WHERE table_name = 'conversations' AND column_name = 'usage_data'
+    """)
+    if not cur.fetchone():
+        cur.execute("""
+            ALTER TABLE conversations
+            ADD COLUMN usage_data JSONB DEFAULT '{}'
+        """)
     
     # Use PostgreSQL-compatible schema inspection
     cur.execute("SELECT column_name FROM information_schema.columns WHERE table_name = 'conversations';")
@@ -376,6 +391,30 @@ def init_db():
         cur.execute("ALTER TABLE conversations ADD COLUMN latency_ms INTEGER")
     if "needed_human_verification" not in columns:
         cur.execute("ALTER TABLE conversations ADD COLUMN needed_human_verification BOOLEAN DEFAULT FALSE")
+    
+    # Add usage_data column if it doesn't exist
+    cur.execute("""
+        SELECT column_name
+        FROM information_schema.columns
+        WHERE table_name = 'conversations' AND column_name = 'usage_data'
+    """)
+    if not cur.fetchone():
+        cur.execute("""
+            ALTER TABLE conversations
+            ADD COLUMN usage_data JSONB DEFAULT '{}'
+        """)
+    
+    # Add request_timings column if it doesn't exist
+    cur.execute("""
+        SELECT column_name
+        FROM information_schema.columns
+        WHERE table_name = 'conversations' AND column_name = 'request_timings'
+    """)
+    if not cur.fetchone():
+        cur.execute("""
+            ALTER TABLE conversations
+            ADD COLUMN request_timings JSONB DEFAULT '{}'
+        """)
     
     conn.commit()
     conn.close()
@@ -683,7 +722,7 @@ def get_leaderboard_stats(time_period="all"):
 
 @st.cache_data(ttl=60)  # Cache for 1 minute - reduced from 5 minutes since this is used frequently in Chat page
 @monitor_query("get_dataset_stats")
-def get_dataset_stats():
+def get_dataset_stats(max_retries=3, retry_delay=1):
     """
     Get statistics about the dataset including total sets, contributors,
     and violations handled for both user and assistant.
@@ -694,51 +733,135 @@ def get_dataset_stats():
     Note:
         Results are cached for 5 minutes to improve performance
     """
-    conn = get_connection()
-    cur = conn.cursor()
+    from components.service_fallbacks import with_database_fallback
     
-    # Combined query for all stats
-    cur.execute("""
-        WITH stats AS (
-            SELECT
-                COUNT(*) as total_sets,
-                COUNT(DISTINCT CASE WHEN contributor IS NOT NULL AND contributor != '' THEN contributor END) as total_contributors,
-                SUM(CASE WHEN user_violates_rules = 1 AND needed_human_verification = FALSE THEN 1 ELSE 0 END) as auto_user_violations,
-                SUM(CASE WHEN assistant_violates_rules = 1 AND needed_human_verification = FALSE THEN 1 ELSE 0 END) as auto_assistant_violations,
-                SUM(CASE WHEN user_violates_rules = 1 AND needed_human_verification = TRUE THEN 1 ELSE 0 END) as human_verified_user_violations,
-                SUM(CASE WHEN assistant_violates_rules = 1 AND needed_human_verification = TRUE THEN 1 ELSE 0 END) as human_verified_assistant_violations,
-                SUM(prompt_tokens) as total_prompt_tokens,
-                SUM(completion_tokens) as total_completion_tokens,
-                SUM(total_tokens) as total_all_tokens,
-                SUM(input_cost) as total_input_cost,
-                SUM(output_cost) as total_output_cost,
-                SUM(total_cost) as total_all_cost,
-                AVG(latency_ms) as avg_latency,
-                SUM(CASE WHEN needed_human_verification = TRUE THEN 1 ELSE 0 END) as needed_verification_count
-            FROM conversations
-        )
-        SELECT * FROM stats
-    """)
-    
-    stats = cur.fetchone()
-    total_sets = stats[0] or 0
-    total_contributors = stats[1] or 0
-    auto_user_violations = stats[2] or 0
-    auto_assistant_violations = stats[3] or 0
-    human_verified_user_violations = stats[4] or 0
-    human_verified_assistant_violations = stats[5] or 0
-    total_prompt_tokens = stats[6] or 0
-    total_completion_tokens = stats[7] or 0
-    total_all_tokens = stats[8] or 0
-    total_input_cost = float(stats[9] or 0)
-    total_output_cost = float(stats[10] or 0)
-    total_all_cost = float(stats[11] or 0)
-    avg_latency = int(stats[12] or 0)
-    needed_verification_count = int(stats[13] or 0)
-    
-    conn.close()
-    
-    return {
+    @with_database_fallback({
+        "total_sets": 0,
+        "total_contributors": 0,
+        "user_violations": 0,
+        "assistant_violations": 0,
+        "human_verified_user_violations": 0,
+        "human_verified_assistant_violations": 0,
+        "total_user_violations": 0,
+        "total_assistant_violations": 0,
+        "total_prompt_tokens": 0,
+        "total_completion_tokens": 0,
+        "total_tokens": 0,
+        "total_input_cost": 0.0,
+        "total_output_cost": 0.0,
+        "total_cost": 0.0,
+        "avg_latency_ms": 0,
+        "needed_human_verification": 0
+    })
+    def _get_stats():
+        last_error = None
+        for attempt in range(max_retries):
+            try:
+                conn = get_connection()
+                cur = conn.cursor()
+                
+                # Combined query for all stats
+                cur.execute("""
+                    WITH stats AS (
+                        SELECT
+                            COUNT(*) as total_sets,
+                            COUNT(DISTINCT CASE WHEN contributor IS NOT NULL AND contributor != '' THEN contributor END) as total_contributors,
+                            SUM(CASE WHEN user_violates_rules = 1 AND needed_human_verification = FALSE THEN 1 ELSE 0 END) as auto_user_violations,
+                            SUM(CASE WHEN assistant_violates_rules = 1 AND needed_human_verification = FALSE THEN 1 ELSE 0 END) as auto_assistant_violations,
+                            SUM(CASE WHEN user_violates_rules = 1 AND needed_human_verification = TRUE THEN 1 ELSE 0 END) as human_verified_user_violations,
+                            SUM(CASE WHEN assistant_violates_rules = 1 AND needed_human_verification = TRUE THEN 1 ELSE 0 END) as human_verified_assistant_violations,
+                            SUM(prompt_tokens) as total_prompt_tokens,
+                            SUM(completion_tokens) as total_completion_tokens,
+                            SUM(total_tokens) as total_all_tokens,
+                            SUM(input_cost) as total_input_cost,
+                            SUM(output_cost) as total_output_cost,
+                            SUM(total_cost) as total_all_cost,
+                            AVG(latency_ms) as avg_latency,
+                            SUM(CASE WHEN needed_human_verification = TRUE THEN 1 ELSE 0 END) as needed_verification_count
+                        FROM conversations
+                    )
+                    SELECT * FROM stats
+                """)
+                
+                stats = cur.fetchone()
+                conn.close()
+                
+                if stats is None:
+                    stats = (0, 0, 0, 0, 0, 0, 0, 0, 0, 0.0, 0.0, 0.0, 0, 0)
+                    
+                return {
+                    "total_sets": stats[0] or 0,
+                    "total_contributors": stats[1] or 0,
+                    "user_violations": stats[2] or 0,
+                    "assistant_violations": stats[3] or 0,
+                    "human_verified_user_violations": stats[4] or 0,
+                    "human_verified_assistant_violations": stats[5] or 0,
+                    "total_user_violations": (stats[2] or 0) + (stats[4] or 0),
+                    "total_assistant_violations": (stats[3] or 0) + (stats[5] or 0),
+                    "total_prompt_tokens": stats[6] or 0,
+                    "total_completion_tokens": stats[7] or 0,
+                    "total_tokens": stats[8] or 0,
+                    "total_input_cost": float(stats[9] or 0),
+                    "total_output_cost": float(stats[10] or 0),
+                    "total_cost": float(stats[11] or 0),
+                    "avg_latency_ms": int(stats[12] or 0),
+                    "needed_human_verification": int(stats[13] or 0)
+                }
+            except Exception as e:
+                last_error = e
+                logger.warning(f"Database connection attempt {attempt + 1} failed: {str(e)}")
+                if attempt < max_retries - 1:
+                    time.sleep(retry_delay)
+                    continue
+                break
+        
+        logger.error(f"All database connection attempts failed: {str(last_error)}")
+        return None
+        
+        # Combined query for all stats
+        cur.execute("""
+            WITH stats AS (
+                SELECT
+                    COUNT(*) as total_sets,
+                    COUNT(DISTINCT CASE WHEN contributor IS NOT NULL AND contributor != '' THEN contributor END) as total_contributors,
+                    SUM(CASE WHEN user_violates_rules = 1 AND needed_human_verification = FALSE THEN 1 ELSE 0 END) as auto_user_violations,
+                    SUM(CASE WHEN assistant_violates_rules = 1 AND needed_human_verification = FALSE THEN 1 ELSE 0 END) as auto_assistant_violations,
+                    SUM(CASE WHEN user_violates_rules = 1 AND needed_human_verification = TRUE THEN 1 ELSE 0 END) as human_verified_user_violations,
+                    SUM(CASE WHEN assistant_violates_rules = 1 AND needed_human_verification = TRUE THEN 1 ELSE 0 END) as human_verified_assistant_violations,
+                    SUM(prompt_tokens) as total_prompt_tokens,
+                    SUM(completion_tokens) as total_completion_tokens,
+                    SUM(total_tokens) as total_all_tokens,
+                    SUM(input_cost) as total_input_cost,
+                    SUM(output_cost) as total_output_cost,
+                    SUM(total_cost) as total_all_cost,
+                    AVG(latency_ms) as avg_latency,
+                    SUM(CASE WHEN needed_human_verification = TRUE THEN 1 ELSE 0 END) as needed_verification_count
+                FROM conversations
+            )
+            SELECT * FROM stats
+        """)
+        
+        stats = cur.fetchone()
+        if stats is None:
+            stats = (0, 0, 0, 0, 0, 0, 0, 0, 0, 0.0, 0.0, 0.0, 0, 0)
+        total_sets = stats[0] or 0
+        total_contributors = stats[1] or 0
+        auto_user_violations = stats[2] or 0
+        auto_assistant_violations = stats[3] or 0
+        human_verified_user_violations = stats[4] or 0
+        human_verified_assistant_violations = stats[5] or 0
+        total_prompt_tokens = stats[6] or 0
+        total_completion_tokens = stats[7] or 0
+        total_all_tokens = stats[8] or 0
+        total_input_cost = float(stats[9] or 0)
+        total_output_cost = float(stats[10] or 0)
+        total_all_cost = float(stats[11] or 0)
+        avg_latency = int(stats[12] or 0)
+        needed_verification_count = int(stats[13] or 0)
+        
+        conn.close()
+        
+        return {
         "total_sets": total_sets,
         "total_contributors": total_contributors,
         # Auto-detected violations

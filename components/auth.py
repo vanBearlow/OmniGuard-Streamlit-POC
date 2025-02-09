@@ -21,89 +21,52 @@ def get_auth_status() -> Tuple[bool, Optional[str]]:
             - error_message (Optional[str]): An error message if any issues occur during authentication; otherwise, None.
     """
     try:
-        # Check for development mode first
-        if st.secrets.get("development_mode", False):
-            logger.info("Development mode is enabled, bypassing authentication")
+        dev_mode = bool(st.secrets.get("development_mode", False))
+        if dev_mode:
+            logger.info("Development mode is enabled. Bypassing authentication.")
             return True, None
-            
         logger.info("Checking authentication status")
-        is_logged_in = st.experimental_user.is_logged_in
-        if is_logged_in:
-            logger.info("User is authenticated")
-        else:
-            logger.info("User is not authenticated")
-        return is_logged_in, None
-    except AttributeError as e:
-        error_msg = "Streamlit experimental_user not available. Check if authentication is enabled."
-        logger.error(f"{error_msg}\n{traceback.format_exc()}")
-        return False, error_msg
+        try:
+            is_logged_in = getattr(st.experimental_user, "is_logged_in", False)
+            if is_logged_in:
+                logger.info("User is authenticated")
+                return True, None
+            else:
+                logger.info("User is not authenticated")
+                return False, None
+        except AttributeError:
+            error_msg = "Authentication not available"
+            logger.error(error_msg)
+            return False, error_msg
     except Exception as e:
-        error_msg = f"Authentication error: {str(e)}"
-        logger.error(f"{error_msg}\n{traceback.format_exc()}")
+        error_msg = f"Unexpected authentication error: {str(e)}"
+        logger.error(error_msg)
         return False, error_msg
 
 def render_auth_status():
-    """Renders a consistent authentication status and login/logout UI in the sidebar."""
     with st.sidebar:
-        try:
-            logger.info("Rendering authentication status")
-            
-            # Check for development mode first
-            if st.secrets.get("development_mode", False):
-                logger.info("Development mode is enabled")
-                st.info("Running in development mode")
-                return
-                
-            is_authenticated, error = get_auth_status()
-            
-            if error:
-                logger.error(f"Authentication status error: {error}")
-                st.error(f"Authentication error: {error}")
-                st.info("Please check authentication configuration in .streamlit/secrets.toml")
-                return
-            
-            if is_authenticated:
+        # This call will handle dev_mode logic
+        is_authenticated, error = get_auth_status()
+        if st.secrets.get("development_mode", False):
+            st.info("Development Mode: No authentication required.")
+            return
+        elif error:
+            st.error(f"Authentication error: {error}")
+            return
+
+        # If we reach here, dev_mode is off and we rely on real st.experimental_user
+        if is_authenticated:
+            user_email = getattr(st.experimental_user, "email", None) or "Unknown"
+            st.write(f"👤 Logged in as: {user_email}")
+            if st.button("🚪 Logout"):
                 try:
-                    user_email = getattr(st.experimental_user, 'email', 'User')
-                    logger.info(f"Displaying info for authenticated user: {user_email}")
-                    st.write(f"👤 Logged in as: {user_email}")
-                    
-                    if st.button("🚪 Logout", use_container_width=True):
-                        logger.info("Logout button clicked")
-                        try:
-                            st.logout()
-                            logger.info("Logout successful")
-                        except Exception as e:
-                            error_msg = f"Logout failed: {str(e)}"
-                            logger.error(f"{error_msg}\n{traceback.format_exc()}")
-                            st.error(error_msg)
-                            
+                    st.logout()
                 except Exception as e:
-                    error_msg = f"Error displaying user info: {str(e)}"
-                    logger.error(f"{error_msg}\n{traceback.format_exc()}")
-                    st.error(error_msg)
-            else:
-                logger.info("User not logged in, displaying login button")
-                st.write("👤 Not logged in")
-                
-                if st.button("🔑 Login with Google", use_container_width=True):
-                    logger.info("Login button clicked")
-                    try:
-                        # Check for required OAuth configuration
-                        if not st.secrets.get("oauth"):
-                            error_msg = "OAuth configuration missing in .streamlit/secrets.toml"
-                            logger.error(error_msg)
-                            st.error(error_msg)
-                            return
-                            
-                        st.login()
-                        logger.info("Login flow initiated")
-                    except Exception as e:
-                        error_msg = f"Login failed: {str(e)}"
-                        logger.error(f"{error_msg}\n{traceback.format_exc()}")
-                        st.error(error_msg)
-                        
-        except Exception as e:
-            error_msg = f"Error in auth status UI: {str(e)}"
-            logger.error(f"{error_msg}\n{traceback.format_exc()}")
-            st.error(error_msg)
+                    st.error(f"Logout failed: {str(e)}")
+        else:
+            st.write("👤 Not logged in")
+            if st.button("🔑 Login"):
+                try:
+                    st.login()
+                except Exception as e:
+                    st.error(f"Login failed: {str(e)}")

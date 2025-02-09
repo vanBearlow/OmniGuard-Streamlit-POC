@@ -50,7 +50,11 @@ def display_violation_form(session_state: Dict[str, Any]) -> None:
 
 def display_rejection_stats() -> None:
     """Display rejection statistics in the sidebar."""
-    stats = get_dataset_stats()
+    stats = get_dataset_stats(max_retries=3, retry_delay=1)
+    if not stats:
+        st.sidebar.warning("⚠️ Statistics temporarily unavailable")
+        return
+        
     st.sidebar.markdown("---")
     st.sidebar.markdown("### Rejection Statistics")
     

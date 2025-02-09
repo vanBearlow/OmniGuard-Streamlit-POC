@@ -58,7 +58,9 @@ def init_db():
     """)
     columns = [row[0] for row in cur.fetchall()]
     
-    # Add vote columns if they don't exist
+    # Add required columns if they don't exist
+    if "conversation_messages" not in columns:
+        cur.execute("ALTER TABLE flagged_conversations ADD COLUMN conversation_messages TEXT")
     if "user_violation_votes" not in columns:
         cur.execute("ALTER TABLE flagged_conversations ADD COLUMN user_violation_votes INTEGER DEFAULT 0")
     if "assistant_violation_votes" not in columns:

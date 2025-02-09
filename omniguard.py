@@ -69,19 +69,13 @@ sitename = "OmniGuard"
 
 # --- Helper functions for API key and client initialization ---
 def get_api_key():
-    """Retrieve the API key based on session configuration."""
-    if st.session_state.get("contribute_training_data"):
-        api_key = os.getenv("OPENROUTER_API_KEY")
-        if not api_key:
-            logger.error("OPENROUTER_API_KEY environment variable not set")
-            raise ValueError("OpenRouter API key not configured")
-        return api_key
-    else:
-        api_key = st.session_state.get("api_key")
-        if not api_key:
-            logger.error("No API key found in session state")
-            raise ValueError("API key not configured")
-        return api_key
+    """Retrieve the API key based on configuration."""
+    from components.service_fallbacks import check_api_key
+    
+    api_key = check_api_key()
+    if not api_key:
+        raise ValueError("OpenRouter API key not available")
+    return api_key
 
 def get_openai_client():
     """Initialize and return the OpenAI client."""
@@ -282,20 +276,22 @@ def omniguard_check(pending_assistant_response=None):
 
     except (RateLimitError, APIError) as e:
         logger.exception("OpenAI API Error in OmniGuard")
-        return {
+        error_response = {
             "response": {
                 "action": "UserInputRejection",
                 "UserInputRejection": f"OmniGuard API error - {str(e)}"
             }
         }
+        return json.dumps(error_response)
     except requests.exceptions.RequestException as e:
         logger.exception("Network Error in OmniGuard")
-        return {
+        error_response = {
             "response": {
                 "action": "UserInputRejection",
                 "UserInputRejection": f"OmniGuard network error - {str(e)}"
             }
         }
+        return json.dumps(error_response)
     except json.JSONDecodeError as e:
         logger.exception("JSON Parsing Error in OmniGuard")
         return {
@@ -306,12 +302,13 @@ def omniguard_check(pending_assistant_response=None):
         }
     except Exception as e:
         logger.exception("Unexpected Error in OmniGuard")
-        return {
+        error_response = {
             "response": {
                 "action": "UserInputRejection",
                 "UserInputRejection": f"OmniGuard system error - {str(e)}"
             }
         }
+        return json.dumps(error_response)
 
 def process_omniguard_result(omniguard_result, user_prompt, context):
     """
@@ -334,14 +331,7 @@ def process_omniguard_result(omniguard_result, user_prompt, context):
             if user_violates:
                 # User message rejected
                 st.session_state.rejection_count += 1
-                try:
-                    response_text = (
-                        omniguard_raw_response["response"].get("UserInputRejection")
-                        or "Content blocked for safety reasons."
-                    )
-                except (TypeError, KeyError) as e:
-                    logger.error(f"Error accessing rejection message: {e}")
-                    response_text = "Content blocked for safety reasons."
+                response_text = parsed_response.get("response", {}).get("UserInputRejection", "Content blocked for safety reasons.")
                 
                 st.markdown(response_text)
                 st.session_state.messages.append({"role": "assistant", "content": response_text})
@@ -403,10 +393,16 @@ def process_omniguard_result(omniguard_result, user_prompt, context):
 
     except json.JSONDecodeError as e:
         logger.error(f"JSON parsing error in process_omniguard_result: {e}")
-        st.error("Error processing OmniGuard result. Please try again.")
+        if st.secrets.get("development_mode", False):
+            st.error(f"Dev Mode Error: {e}")
+        else:
+            st.error("Something unexpected happened. Please try again later.")
     except Exception as e:
         logger.exception("Unexpected error in process_omniguard_result")
-        st.error("An unexpected error occurred. Please try again.")
+        if st.secrets.get("development_mode", False):
+            st.error(f"Dev Mode Error: {e}")
+        else:
+            st.error("Something unexpected happened. Please try again later.")
 
 def fetch_assistant_response(prompt_text):
     """
@@ -682,4 +678,15 @@ def check_rule_violation(report_info, conversation_context):
         return {"input_violates_rules": False, "output_violates_rules": False}
     except Exception as e:
         logger.exception("Unexpected Error in check_rule_violation")
+        return {"input_violates_rules": False, "output_violates_rules": False}
+
+def assess_rule_violation(report_info, conversation_context):
+    """
+    Evaluate rule violations using the same approach as check_rule_violation.
+    This function is intended for the Human Verification page.
+    """
+    try:
+        return check_rule_violation(report_info, conversation_context)
+    except Exception as e:
+        logger.exception("Error in assess_rule_violation")
         return {"input_violates_rules": False, "output_violates_rules": False}

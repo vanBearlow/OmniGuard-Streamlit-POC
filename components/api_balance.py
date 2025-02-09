@@ -29,7 +29,7 @@ def get_api_balance():
         
         try:
             # Try to get total cost from database
-            stats = get_dataset_stats()
+            stats = get_dataset_stats(max_retries=3, retry_delay=1)
             total_cost = stats.get("total_cost", 0)
             logger.info(f"Got total cost from database: ${total_cost:.2f}")
         except Exception as e:

@@ -9,10 +9,13 @@ from omniguard import assess_rule_violation
 
 st.set_page_config(page_title="Human Verification", page_icon=":shield:")
 
+# Initialize database on module load
+hv_init_db()
+
 def get_flagged_conversations():
     """
     Retrieve conversations flagged for human verification.
-    This function queries for conversations with a vote count 
+    This function queries for conversations with a vote count
     either missing or below the threshold of 100.
     """
     conn = get_connection()
@@ -145,7 +148,7 @@ def record_vote(conversation_id, user_email, sources, comment=""):
             )
             if cursor.fetchone():
                 return "already_voted"
-
+            
             # Record the vote
             cursor.execute(
                 """
@@ -161,7 +164,7 @@ def record_vote(conversation_id, user_email, sources, comment=""):
                 (conversation_id, user_email, comment)
             )
             conn.commit()
-
+            
             # Get updated conversation details
             cursor.execute(
                 """
@@ -174,11 +177,11 @@ def record_vote(conversation_id, user_email, sources, comment=""):
                 """, (conversation_id,)
             )
             result = cursor.fetchone()
-
+            
             if result:
                 conversation_messages, conversation_configuration, user_votes, assistant_votes, no_rule_votes = result
                 total_votes = user_votes + assistant_votes + no_rule_votes
-
+                
                 # Process results if vote threshold is reached
                 if total_votes >= 100:
                     # Build vote counts
@@ -187,7 +190,7 @@ def record_vote(conversation_id, user_email, sources, comment=""):
                         "assistant_violation_votes": assistant_votes,
                         "no_violation_votes": no_rule_votes
                     }
-
+                    
                     # Create conversation context
                     conversation_context = f"""<input>
 <![CDATA[
@@ -197,7 +200,7 @@ def record_vote(conversation_id, user_email, sources, comment=""):
     }}
 ]]>
 </input>"""
-
+                    
                     # Assess violations with OmniGuard
                     violation_result = assess_rule_violation(json.dumps(vote_counts), conversation_context)
                     
@@ -212,12 +215,12 @@ def record_vote(conversation_id, user_email, sources, comment=""):
                     st.success("Final decision made!")
                     with st.expander("View Decision Details"):
                         st.json(decision)
-
+            
             return True
-
+        
         finally:
             conn.close()
-
+    
     except Exception as e:
         st.error(f"Error recording vote: {e}")
         return False
@@ -227,11 +230,14 @@ def display_conversation(conv):
     Format and display a single conversation entry along with its current vote count,
     and provide a voting form for authenticated users to verify reported violations.
     """
-    conversation_id, conversation_messages, conversation_configuration, user_violation_votes, assistant_violation_votes, no_violation_votes, reported_user_violation, reported_assistant_violation = conv
-    st.markdown(f"**Conversation ID:** ")
-    st.code(f"{conversation_id}")
+    (conversation_id, conversation_messages, conversation_configuration, 
+     user_violation_votes, assistant_violation_votes, no_violation_votes, 
+     reported_user_violation, reported_assistant_violation) = conv
+     
+    # Display conversation ID using a subheader for clarity
+    st.subheader(f"Conversation ID: {conversation_id}")
     
-    # Display what was initially reported
+    # Display originally reported violations
     reported_violations = []
     if reported_user_violation:
         reported_violations.append("User Violation")
@@ -240,26 +246,29 @@ def display_conversation(conv):
     if reported_violations:
         st.warning(f"⚠️ Originally reported for: {', '.join(reported_violations)}")
     
-    with st.expander("Show Configuration"):
-        st.code(conversation_configuration, language="xml")
-    with st.expander("Show Messages"):
-        st.json(json.loads(conversation_messages))
-
+    # Organize configuration and messages in columns
+    cols = st.columns(2)
+    with cols[0]:
+        with st.expander("Show Configuration"):
+            st.code(conversation_configuration, language="xml")
+    with cols[1]:
+        with st.expander("Show Messages"):
+            try:
+                st.json(json.loads(conversation_messages))
+            except Exception:
+                st.error("Error parsing conversation messages")
+    
+    # Voting form container
     with st.form(key=f"vote_form_{conversation_id}"):
         st.markdown("### Verify Reported Violations")
+        st.info("Please review the conversation details and confirm any policy violations based on your professional assessment.")
         
-        # Show what was reported with checkboxes pre-filled based on reports
-        st.markdown("Conduct a thorough analysis of the conversation to validate reported concerns:")
+        # Display checkboxes with clearer labels
+        user_rule = st.checkbox("Confirm User Policy Violation", value=reported_user_violation)
+        assistant_rule = st.checkbox("Confirm Assistant Policy Violation", value=reported_assistant_violation)
+        no_rule = st.checkbox("Mark as Safe (No Policy Violations)", value=not (reported_user_violation or reported_assistant_violation))
         
-        if reported_user_violation:
-            st.info("🔍 Case includes reported User policy violations")
-        if reported_assistant_violation:
-            st.info("🔍 Case includes reported Assistant policy violations")
-            
-        st.markdown("Professional Assessment (select all applicable findings):")
-        user_rule = st.checkbox("Confirmed User Policy Violation", value=reported_user_violation)
-        assistant_rule = st.checkbox("Confirmed Assistant Policy Violation", value=reported_assistant_violation)
-        no_rule = st.checkbox("Verified Safe - No Policy Violations Present", value=not (reported_user_violation or reported_assistant_violation))
+        # Record selected sources
         sources = []
         if no_rule:
             sources.append("No Rule Violations")
@@ -267,9 +276,9 @@ def display_conversation(conv):
             sources.append("User")
         if assistant_rule:
             sources.append("Assistant")
-            
+        
         comment = st.text_area("Professional Analysis Notes (optional)", "")
-        vote_submit = st.form_submit_button("Submit")
+        vote_submit = st.form_submit_button("Submit Vote")
         if vote_submit:
             is_authenticated, _ = get_auth_status()
             if not is_authenticated:
@@ -282,7 +291,14 @@ def display_conversation(conv):
                     st.error("You have already voted for this conversation.")
                 else:
                     st.error("Failed to record vote. Please try again.")
-    st.markdown(f"**Current Results:** User Violations: {user_violation_votes} | Assistant Violations: {assistant_violation_votes} | No Violations: {no_violation_votes}")
+    
+    # Display current vote results clearly using columns
+    st.markdown(f"**Current Results:**")
+    result_cols = st.columns(3)
+    result_cols[0].markdown(f"User Violations: **{user_violation_votes}**")
+    result_cols[1].markdown(f"Assistant Violations: **{assistant_violation_votes}**")
+    result_cols[2].markdown(f"No Violations: **{no_violation_votes}**")
+    st.markdown("---")
 
 def main():
     """
@@ -294,26 +310,40 @@ def main():
     if not is_authenticated:
         st.error("Please log in to access the Human Verification Dashboard")
         st.stop()
+    
 
+    # Wrap data retrieval in a spinner for improved user feedback
+    with st.spinner("Loading flagged conversations..."):
+        conversations = get_flagged_conversations()
+    
+    # Sidebar with dashboard information
     with st.sidebar:
         st.markdown(
             """
             # Human Verification Dashboard
-
-            Welcome to the Human Verification Dashboard, where expert reviewers assess and validate potential policy violations. Each case presents:
+            
+            Assess and validate potential policy violations that weren't detected by OmniGuard. Each case presents:
             
             1. Initial violation reports (User/Assistant interactions)
             2. Complete conversation context and system configuration
             3. Current verification status
             
-            As a verification specialist, your role is to conduct thorough assessments of reported incidents.
+            Your role is to conduct thorough assessments of reported incidents.
+            
+            - **Voting:** Confirm reported violations or mark the conversation as safe.
+                - OmniGuard may contain modified configurations, be sure to vote accordingly.
+            - **Final Decision:** Made after 100 total votes, considering both the initial report and verification results.
+            """
 
-            - **Voting:** You can confirm reported violations or mark the conversation as safe
-            - **Final Decision:** Made after 100 total votes, considering both the initial report and verification results""")
-    
-    conversations = get_flagged_conversations()
+
+
+        )
+        # Refresh Dashboard button
+    if st.sidebar.button("Refresh Dashboard"):
+        st.rerun()
+
     if not conversations:
-        st.write("No conversations require verification at this time.")
+        st.info("No conversations require verification at this time.")
     else:
         for conv in conversations:
             st.markdown("---")

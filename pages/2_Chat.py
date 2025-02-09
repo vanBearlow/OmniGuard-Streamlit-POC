@@ -1,7 +1,6 @@
 '''This page handles the chat interface, including the user input, OmniGuard checks, and message display.'''
 
 import streamlit as st
-from dotenv import load_dotenv
 from database import init_db
 from components.conversation_utils import build_conversation_json, format_conversation_context
 from components.chat.chat_history import display_messages, display_debug_expanders
@@ -14,7 +13,6 @@ from components.chat.session_management import (
 )
 
 init_db()
-load_dotenv()
 
 st.set_page_config(page_title="OmniGuard Chat", page_icon=":shield:")
 

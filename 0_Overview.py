@@ -6,17 +6,29 @@ from components.auth import render_auth_status
 from components.init_session_state import init_session_state
 from components.api_balance import display_api_balance
 
+# Initialize database and session
 init_db()
 init_session_state()
 
-st.set_page_config(page_title="OmniGuard", page_icon=":shield:") #never use layout="wide"
+st.set_page_config(page_title="OmniGuard", page_icon=":shield:")  # never use layout="wide"
 
-# Add authentication status to sidebar
+# Render authentication status in sidebar
 render_auth_status()
 
+# Table of Contents in sidebar
+st.sidebar.markdown("## Table of Contents")
+st.sidebar.markdown("""
+- [Overview](#overview)
+- [System Flow](#system-flow)
+- [Configuration Details](#configuration-details)
+- [Dataset](#dataset)
+- [Project Info](#project-info)
+""", unsafe_allow_html=True)
+
 def render_overview() -> None:
-    st.title("OmniGuard - Conversation Moderation System")
-    
+    st.markdown('<a name="overview"></a>', unsafe_allow_html=True)
+    st.title("OmniGuard - Conversation Moderation System (BETA)")
+  
     st.markdown("""
     ## 1. Component Overview
 
@@ -25,12 +37,9 @@ def render_overview() -> None:
     - OmniGuard actively sanitizes minor violations and probes for clarification in ambiguous cases, thereby preserving an engaging and meaningful dialogue while upholding safety standards.
     - The system effectively mitigates the majority of potential violations and attacks through its comprehensive rule set and reasoning-based approach. Together, we're building a safer, more robust AI ecosystem. Each contribution strengthens our collective defense against emerging threats, benefiting the entire AI community.
     """)
-
-    st.markdown("""
-    **Disclaimer:** OmniGuard provides enterprise-grade content moderation while maintaining optimal performance through strategic process segregation. The system's architecture ensures real-time content evaluation without impacting core operational efficiency.
-    """)
-
+  
 def render_system_flow() -> None:
+    st.markdown('<a name="system-flow"></a>', unsafe_allow_html=True)
     st.markdown("---")
     st.markdown("""
     ## 2. System Flow
@@ -46,6 +55,7 @@ def render_system_flow() -> None:
     """)
 
 def render_configuration_details() -> None:
+    st.markdown('<a name="configuration-details"></a>', unsafe_allow_html=True)
     st.markdown("---")
     st.markdown("""
     ## 3. Configuration Details
@@ -53,7 +63,6 @@ def render_configuration_details() -> None:
     ### 3.1 Configuration and Input Injection Strategy
 
     Inject these components using the following message format:
-
     ```json
     { "role": "developer", "content": {"type": "text", "text": "<CONFIGURATION>"} }
     { "role": "user", "content": {"type": "text", "text": "<CONVERSATION>"} }
@@ -131,15 +140,24 @@ def render_additional_notes() -> None:
     - **DEEPSEEK-R1:** This is not used due to reliance on structured outputs. It may be incorporated once it supports such formats.
     """)
 
+@st.cache_data(show_spinner=False)
+def cached_get_dataset_stats() -> Dict[str, Any]:
+    return get_dataset_stats()
+
 def render_dataset_stats(stats: Dict[str, Any]) -> None:
     st.markdown("---")
+    st.markdown('<a name="dataset"></a>', unsafe_allow_html=True)
     st.markdown("## Dataset")
     
+    if not stats:
+        st.warning("⚠️ Dataset statistics temporarily unavailable")
+        return
+        
     # Calculate percentage of conversations needing human verification
     verification_percentage = (stats['needed_human_verification'] / stats['total_sets'] * 100) if stats['total_sets'] > 0 else 0
     
     st.markdown(f"""
-    ### Total Interactions: `{stats['total_sets']:,}`\n
+    ### Total Interactions: `{stats['total_sets']:,}`  
     ### Successfully Rejected:
       - User: `{stats['user_violations']:,}`
       - Assistant: `{stats['assistant_violations']:,}`
@@ -235,60 +253,34 @@ def render_dataset_download() -> None:
     progress_placeholder.empty()
     progress_bar.empty()
     
-    # Show download button
+    # Show download button with improved tooltip for accessibility
     st.download_button(
         label="Download Complete Dataset",
         data=complete_data,
         file_name="training_data.jsonl",
         mime="application/jsonl",
-        help=f"Download the complete dataset ({result['total_records']:,} records)"
+        help="Click to download the complete dataset. Contains all records available."
     )
 
 def render_project_info() -> None:
     st.markdown("---")
-    st.markdown("## Project Costs")
-    st.markdown("""
-    - **Development and Testing**: $25
-    - **API Usage**: See dataset costs above
-    - **Infrastructure**: $0 (Using Streamlit Community Cloud)
-    """)
-
-    st.markdown("## Project Development Time")
-    st.markdown("""
-    - **Start Date**: 2025-02-01
-    - **Current Status**: Beta Testing
-    - **Development Duration**: 1 week
-    - **Testing Phase**: Ongoing
-    """)
-
-    st.markdown("## Instructions for Testing Agents")
-    st.markdown("""
-    1. **Overview Page** (Current)
-       - Review system architecture and configuration
-       - Understand dataset statistics and costs
-    
-    2. **Chat Page** (Most Important)
-       - Test OmniGuard's moderation capabilities
-       - Try various inputs to assess rule enforcement
-       - Note how violations are handled
-    
-    3. **Configuration Page**
-       - Review and modify system prompts
-       - Adjust model settings
-       - Test different configurations
-    
-    4. **Human Verification Page**
-       - See how ambiguous cases are handled
-       - Review flagged content requiring verification
-    
-    5. **Beta Testers Page**
-       - Track your contribution metrics
-       - View testing guidelines
-    
-    6. **Leaderboard**
-       - See top contributors
-       - Track community engagement
-    """)
+    st.markdown('<a name="project-info"></a>', unsafe_allow_html=True)
+    col1, col2 = st.columns(2)
+    with col1:
+        st.header("Project Costs")
+        st.markdown("""
+- **Development and Testing**: $25  
+- **API Usage**: See dataset costs above  
+- **Infrastructure**: $0 (Using Streamlit Community Cloud)
+        """)
+    with col2:
+        st.header("Project Development Time")
+        st.markdown("""
+- **Start Date**: 2025-02-01  
+- **Current Status**: Beta Testing  
+- **Development Duration**: 1 week  
+- **Testing Phase**: Ongoing
+        """)
 
 def main() -> None:
     render_overview()
@@ -298,7 +290,8 @@ def main() -> None:
     render_input_format()
     render_additional_notes()
     
-    stats = get_dataset_stats()
+    with st.spinner("Loading dataset statistics..."):
+        stats = cached_get_dataset_stats()
     render_dataset_stats(stats)
     render_dataset_format()
     render_dataset_download()
