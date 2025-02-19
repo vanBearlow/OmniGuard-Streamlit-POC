@@ -25,6 +25,7 @@ def get_api_key():
 def get_openai_client():
     """Initialize and return the OpenAI client."""
     try:
+        # Creates an OpenAI client from openrouter.ai
         return OpenAI(
             base_url="https://openrouter.ai/api/v1",
             api_key=get_api_key()
@@ -34,7 +35,16 @@ def get_openai_client():
         raise
 
 def get_model_params(model_name, is_omniguard=False):
-    """Get appropriate parameters based on model type."""
+    """
+    Get appropriate parameters based on model type.
+    
+    For OmniGuard:
+      - Both o1 and o3 are reasoning models, so we store
+        the selected reasoning effort (low, medium, or high).
+    For the assistant:
+      - If the model is o1/o3, we also store a reasoning effort.
+      - Otherwise (e.g., GPT-like model), we store temperature.
+    """
     params = {}
     
     # For OmniGuard, both o1 and o3 are reasoning models
@@ -79,14 +89,14 @@ def omniguard_check(pending_assistant_response=None):
             "message": {
             "role": "assistant",
             "content": "    {
-        "conversation_id": "string",
-        "analysisSummary": "string",
-        "compliant": boolean,
-        "response": {
-            "action": "RefuseUser | RefuseAssistant",
-            "RefuseUser | RefuseAssistant": "string"
-                    }
-                }",
+                "conversation_id": "string",
+                "analysisSummary": "string",
+                "compliant": boolean,
+                "response": {
+                    "action": "RefuseUser | RefuseAssistant",
+                    "RefuseUser | RefuseAssistant": "string"
+                }
+            }",
             },
             "logprobs": null,
             "finish_reason": "stop"
@@ -97,13 +107,12 @@ def omniguard_check(pending_assistant_response=None):
             "completion_tokens": 12,
             "total_tokens": 21,
             "completion_tokens_details": {
-            "reasoning_tokens": 0,
-            "accepted_prediction_tokens": 0,
-            "rejected_prediction_tokens": 0
+                "reasoning_tokens": 0,
+                "accepted_prediction_tokens": 0,
+                "rejected_prediction_tokens": 0
             }
         }
         }
-
     """
     try:
         # Track component timings
@@ -119,7 +128,7 @@ def omniguard_check(pending_assistant_response=None):
         
         from components.conversation_utils import build_conversation_json, format_conversation_context
         
-        # Build base conversation
+        # Build base conversation from session state
         full_messages = st.session_state.messages.copy()
         
         # If evaluating assistant response, add it to messages
@@ -133,15 +142,14 @@ def omniguard_check(pending_assistant_response=None):
         # Record preparation time
         timings['prep'] = time.time() - timings['start']
         
-        # Format omniguard_evaluation_input with configuration
+        # Format OmniGuard evaluation input with configuration
         omniguard_config = st.session_state.omniguard_configuration
-
         omniguard_evaluation_input = [
             {"role": "developer", "content": omniguard_config},
             {"role": "user", "content": conversation_context}
         ]
         
-        # Get model-specific parameters
+        # Get model-specific parameters for OmniGuard
         model_params = get_model_params(st.session_state.selected_omniguard_model, is_omniguard=True)
         
         # API call timing
@@ -154,7 +162,7 @@ def omniguard_check(pending_assistant_response=None):
                 },
                 model=st.session_state.get("selected_omniguard_model", "o3-mini"),
                 messages=omniguard_evaluation_input,
-                response_format={"type": "json_object"},
+                response_format={"type": "json_object"},  # We want JSON content from OmniGuard
                 **model_params
             )
         except RateLimitError as e:
@@ -180,26 +188,33 @@ def omniguard_check(pending_assistant_response=None):
 
         logger.debug("OmniGuard raw response: %s", response.choices[0].message.content)
 
-        # Capture complete usage data
+        # Safely capture usage data
         usage_data = {}
-        if hasattr(response, 'usage'):
+        if hasattr(response, 'usage') and response.usage:
+            # Use getattr to avoid errors if a field isn't present
             usage_data = {
-                'prompt_tokens': response.usage.prompt_tokens,
-                'completion_tokens': response.usage.completion_tokens,
-                'total_tokens': response.usage.total_tokens
+                'prompt_tokens': getattr(response.usage, 'prompt_tokens', 0),
+                'completion_tokens': getattr(response.usage, 'completion_tokens', 0),
+                'total_tokens': getattr(response.usage, 'total_tokens', 0)
             }
-            # Add completion tokens details if available
-            if hasattr(response.usage, 'completion_tokens_details'):
+            # If there's some extra detail about tokens, parse it safely
+            if hasattr(response.usage, 'completion_tokens_details') and response.usage.completion_tokens_details:
+                # For example, reasoning tokens
                 usage_data['completion_tokens_details'] = {
-                    'reasoning_tokens': getattr(response.usage.completion_tokens_details, 'reasoning_tokens', 0)}
-
+                    'reasoning_tokens': getattr(response.usage.completion_tokens_details, 'reasoning_tokens', 0)
+                }
+        
+        # Extract raw content from the first choice
         raw_content = response.choices[0].message.content or ""
-
+        
         # Use raw response text directly without JSON parsing
         omniguard_raw_response = raw_content
 
         # Store OmniGuard response in session state
         st.session_state.omniguard_output_message = omniguard_raw_response
+
+        timings['process'] = time.time() - process_start
+        # Optionally, you can store the timings and usage_data somewhere if needed
 
         return omniguard_raw_response
 
@@ -252,9 +267,23 @@ def omniguard_check(pending_assistant_response=None):
         return json.dumps(error_response)
 
 def process_omniguard_result(omniguard_result, user_prompt, context):
-    """Process OmniGuard result and handle appropriate actions."""
+    """
+    Process OmniGuard result and handle appropriate actions.
+
+    This function interprets the OmniGuard response (raw JSON or string) to see if
+    the user or the assistant message should be refused. If the user request is not
+    compliant, it returns a refusal message. If user request is allowed, it attempts
+    to fetch the assistant's response, checks it again with OmniGuard, and if that
+    fails, refuses the assistant response.
+    
+    Args:
+        omniguard_result (str): The raw OmniGuard result (possibly JSON).
+        user_prompt (str): The original user prompt text.
+        context (str): Additional context from the last user message.
+    """
     try:
-        omniguard_raw_response = omniguard_result  # treat as raw string
+        # Because the result may be JSON or a string containing JSON, parse carefully
+        omniguard_raw_response = omniguard_result
         try:
             parsed_response = json.loads(omniguard_raw_response)
             compliant = parsed_response.get("compliant", False)
@@ -268,23 +297,23 @@ def process_omniguard_result(omniguard_result, user_prompt, context):
             conversation_id = "error"
 
         with st.chat_message("assistant"):
-            # First check - user message
+            # First check - user message compliance
             user_violates = not compliant
             
             if user_violates:
                 # User message rejected
-                response_text = parsed_response.get("response", {}).get("RefuseUser", "Message rejected for safety reasons.")
+                response_text = parsed_response.get("response", {}).get("RefuseUser", 
+                    "Message rejected for safety reasons.")
                 
                 st.markdown(response_text)
                 st.session_state.messages.append({"role": "assistant", "content": response_text})
-                
                 return
 
-            # Get assistant response if user message allowed
+            # If user message is allowed, proceed to fetch the assistant's response
             with st.spinner("Assistant...", show_time=True):
                 assistant_response = fetch_assistant_response(user_prompt)
             
-            # Second check - assistant response
+            # Second check - assistant response compliance
             assistant_check = omniguard_check(pending_assistant_response=assistant_response)
             try:
                 assistant_check_parsed = json.loads(assistant_check)
@@ -299,7 +328,7 @@ def process_omniguard_result(omniguard_result, user_prompt, context):
                 # Assistant response rejected
                 try:
                     response_text = (
-                        assistant_check_parsed.get("response", {}).get("RefuseAssistant")
+                        assistant_check_parsed.get("response", {}).get("RefuseAssistant") 
                         or "Assistant response blocked for safety reasons."
                     )
                 except (TypeError, KeyError) as e:
@@ -309,10 +338,10 @@ def process_omniguard_result(omniguard_result, user_prompt, context):
                 # Both checks passed
                 response_text = assistant_response
 
+            # Show the final outcome in chat and store it
             st.markdown(response_text)
             st.session_state.messages.append({"role": "assistant", "content": response_text})
             
-
     except json.JSONDecodeError as e:
         logger.error(f"JSON parsing error in process_omniguard_result: {e}")
         if st.secrets.get("development_mode", False):
@@ -328,7 +357,12 @@ def process_omniguard_result(omniguard_result, user_prompt, context):
 
 def fetch_assistant_response(prompt_text):
     """
-    When OmniGuard returns compliant=False, this queries the Assistant.
+    When OmniGuard returns compliant=True for the user,
+    this queries the Assistant to get a response, which
+    will then be re-checked by OmniGuard.
+
+    The function also tracks usage data from the assistant
+    response call (if available), and calculates cost.
     """
     try:
         # Track component timings
@@ -349,7 +383,7 @@ def fetch_assistant_response(prompt_text):
         assistant_messages = [{"role": role, "content": main_prompt}]
         assistant_messages += [{"role": m["role"], "content": m["content"]} for m in st.session_state.messages]
 
-        # Store assistant messages in session state
+        # Store assistant messages in session state for debugging
         st.session_state.assistant_messages = assistant_messages
 
         # Get model-specific parameters
@@ -385,18 +419,18 @@ def fetch_assistant_response(prompt_text):
         # Process timing start
         process_start = time.time()
         
-        # Capture complete usage data
+        # Capture usage data if present
         usage_data = {}
-        if hasattr(response, 'usage'):
+        if hasattr(response, 'usage') and response.usage:
             usage_data = {
-                'prompt_tokens': response.usage.prompt_tokens,
-                'completion_tokens': response.usage.completion_tokens,
-                'total_tokens': response.usage.total_tokens
+                'prompt_tokens': getattr(response.usage, 'prompt_tokens', 0),
+                'completion_tokens': getattr(response.usage, 'completion_tokens', 0),
+                'total_tokens': getattr(response.usage, 'total_tokens', 0)
             }
-            # Add completion tokens details if available
-            if hasattr(response.usage, 'completion_tokens_details'):
+            if hasattr(response.usage, 'completion_tokens_details') and response.usage.completion_tokens_details:
                 usage_data['completion_tokens_details'] = {
-                    'reasoning_tokens': getattr(response.usage.completion_tokens_details, 'reasoning_tokens', 0)}
+                    'reasoning_tokens': getattr(response.usage.completion_tokens_details, 'reasoning_tokens', 0)
+                }
         
         # Calculate costs with error handling
         model_name = st.session_state.selected_assistant_model
@@ -418,6 +452,7 @@ def fetch_assistant_response(prompt_text):
         # Calculate total latency
         latency = int((time.time() - timings['start']) * 1000)
         
+        # Extract the assistant's content from the response
         assistant_output = response.choices[0].message.content
         
         return assistant_output
@@ -434,4 +469,3 @@ def fetch_assistant_response(prompt_text):
     except Exception as e:
         logger.exception("Unexpected Error")
         return "An unexpected error occurred. Please try again."
-
