@@ -258,6 +258,10 @@ def process_omniguard_result(omniguard_result, user_prompt, context):
 
             st.markdown(response_text)
             st.session_state.messages.append({"role": "assistant", "content": response_text})
+            
+            # Save conversation turn to Supabase
+            from components.db_utils import save_conversation_turn
+            save_conversation_turn()
 
     except json.JSONDecodeError as e:
         logger.error(f"JSON parsing error in process_omniguard_result: {e}")
