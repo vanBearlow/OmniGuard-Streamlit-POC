@@ -1,7 +1,7 @@
 import streamlit as st
 import logging
 from typing import Dict, Any, Optional
-from omniguard import omniguard_check, process_omniguard_result
+from components.omniguard.omniguard_service import omniguard_check, process_omniguard_result
 
 def process_user_message(
     user_input: str,
