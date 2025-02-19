@@ -1,37 +1,8 @@
 import streamlit as st
 from typing import Dict, Any
-from components.auth import render_auth_status
 from components.init_session_state import init_session_state
 
-# TODO: Replace with Supabase or other DB fetch for dataset stats
-def cached_get_dataset_stats() -> Dict[str, Any]:
-    """
-    Returns dataset statistics. Currently a placeholder.
-    Replace this with a Supabase call or other logic as needed.
-    """
-    return {
-        "total_sets": 0,
-        "total_contributors": 0,
-        "user_violations": 0,
-        "assistant_violations": 0,
-        "human_verified_user_violations": 0,
-        "human_verified_assistant_violations": 0,
-        "total_user_violations": 0,
-        "total_assistant_violations": 0,
-        "total_prompt_tokens": 0,
-        "total_completion_tokens": 0,
-        "total_tokens": 0,
-        "total_input_cost": 0.0,
-        "total_output_cost": 0.0,
-        "total_cost": 0.0,
-        "avg_latency_ms": 0,
-        "needed_human_verification": 0
-    }
-
 def render_overview() -> None:
-    st.markdown('<a name="overview"></a>', unsafe_allow_html=True)
-    st.title("OmniGuard - Conversation Moderation System (BETA)")
-  
     st.markdown("""
     ## 1. Component Overview
 
@@ -42,7 +13,6 @@ def render_overview() -> None:
     """)
 
 def render_system_flow() -> None:
-    st.markdown('<a name="system-flow"></a>', unsafe_allow_html=True)
     st.markdown("---")
     st.markdown("""
     ## 2. System Flow
@@ -58,7 +28,6 @@ def render_system_flow() -> None:
     """)
 
 def render_configuration_details() -> None:
-    st.markdown('<a name="configuration-details"></a>', unsafe_allow_html=True)
     st.markdown("---")
     st.markdown("""
     ## 3. Configuration Details
@@ -87,101 +56,10 @@ def render_configuration_details() -> None:
         st.code(omniguard_configuration, language="xml")
         st.write("`4111 Tokens`")
 
-def render_format_details() -> None:
-    st.markdown("""
-    ### 3.3 Configuration Format Details
-
-    #### Safety Rules
-
-    Each rule group includes:
-    - **Group:** The category of the rule.
-    - **Rules:** A list where each rule contains:
-      - **ruleId:** A unique identifier.
-      - **description:** A concise summary of the rule.
-      - **examples:** Illustrative cases of rule application.
-
-    #### Operational Instructions
-
-    Key components include:
-    - **json_output_schema:** The structured JSON for OmniGuard's output.
-    - **actions:** The possible responses:
-      - **allow:** Proceeds normally if no violations are detected.
-      - **UserInputRefusal:** Returns a succinct, neutral refusal for problematic user inputs.
-      - **AssistantOutputRefusal:** Provides a sanitized or generic refusal for problematic assistant outputs.
-    """)
-
-def render_input_format() -> None:
-    st.markdown("""
-    ### 3.4 Input Format
-
-    Conversations must adhere to this structure:
-    - **id:** A unique conversation identifier.
-    - **messages:** An array of message objects. Each message includes:
-      - **role:** "system", "user", "assistant".
-      - **content:** The message text.
-
-    Example:
-    ```xml
-    <input>
-      <![CDATA[
-        {
-          "id": "{{id}}",
-          "messages": [
-            { "role": "system", "content": "{{assistant_system_prompt}}" },
-            { "role": "user", "content": "{{user_message}}" },
-            { "role": "assistant", "content": "{{assistant_message}}" }
-          ]
-        }
-      ]]>
-    </input>
-    ```
-    """)
-
-def render_additional_notes() -> None:
-    st.markdown("""
-    ### 3.5 Additional Notes
-    
-    - **Severity Level:** Severity levels were tested, they are not applied in the final implementation to avoid any bias.
-    - **DEEPSEEK-R1:** This is not used due to reliance on structured outputs. It may be incorporated once it supports such formats.
-    """)
-
-def render_dataset_stats(stats: Dict[str, Any]) -> None:
-    st.markdown("---")
-    st.markdown('<a name="dataset"></a>', unsafe_allow_html=True)
+def render_dataset_content() -> None:
     st.markdown("## Dataset")
+    st.info("Dataset statistics temporarily unavailable")
     
-    if not stats:
-        st.warning("⚠️ Dataset statistics temporarily unavailable")
-        return
-        
-    # Calculate percentage of conversations needing human verification
-    verification_percentage = (
-        stats['needed_human_verification'] / stats['total_sets'] * 100
-        if stats['total_sets'] > 0 else 0
-    )
-    
-    st.markdown(f"""
-    ### Total Interactions: `{stats['total_sets']:,}`  
-    ### Successfully Rejected:
-      - User: `{stats['user_violations']:,}`
-      - Assistant: `{stats['assistant_violations']:,}`
-    ### Human Verification Needed: `{stats['needed_human_verification']:,}` (`{verification_percentage:.1f}%`)
-    ### Contributors: `{stats['total_contributors']:,}`
-    
-    ### Token Usage:
-      - Input: `{stats['total_prompt_tokens']:,}`
-      - Output: `{stats['total_completion_tokens']:,}`
-      - Total: `{stats['total_tokens']:,}`
-    
-    ### Costs (USD):
-      - Input: `${stats['total_input_cost']:,.2f}`
-      - Output: `${stats['total_output_cost']:,.2f}`
-      - Total: `${stats['total_cost']:,.2f}`
-    
-    ### Average Latency: `{stats['avg_latency_ms']:,}ms`
-    """)
-
-def render_dataset_format() -> None:
     with st.expander("Dataset Format Example"):
         st.markdown("""
         The dataset is provided in JSONL format, with each line representing a single evaluation instance:
@@ -227,64 +105,89 @@ def render_dataset_format() -> None:
         }
         ```
         """)
-
-def render_dataset_download() -> None:
+    
     # TODO: Implement dataset export from Supabase or other data store
     st.info("Dataset export is not implemented. Replace with your Supabase download logic.")
 
-def render_project_info() -> None:
-    st.markdown("---")
-    st.markdown('<a name="project-info"></a>', unsafe_allow_html=True)
-    col1, col2 = st.columns(2)
-    with col1:
-        st.header("Project Costs")
-        st.markdown("""
-- **Development and Testing**: $25  
-- **API Usage**: See dataset costs above  
-- **Infrastructure**: $0 (Using Streamlit Community Cloud)
-        """)
-    with col2:
-        st.header("Project Development Time")
-        st.markdown("""
-- **Start Date**: 2025-02-01  
-- **Current Status**: Beta Testing  
-- **Development Duration**: 1 week  
-- **Testing Phase**: Ongoing
-        """)
+def render_notes() -> None:
+    st.markdown("""
+    ## Additional Notes
+    
+    ### Format Details
+
+    #### Safety Rules
+
+    Each rule group includes:
+    - **Group:** The category of the rule.
+    - **Rules:** A list where each rule contains:
+      - **ruleId:** A unique identifier.
+      - **description:** A concise summary of the rule.
+      - **examples:** Illustrative cases of rule application.
+
+    #### Operational Instructions
+
+    Key components include:
+    - **json_output_schema:** The structured JSON for OmniGuard's output.
+    - **actions:** The possible responses:
+      - **allow:** Proceeds normally if no violations are detected.
+      - **UserInputRefusal:** Returns a succinct, neutral refusal for problematic user inputs.
+      - **AssistantOutputRefusal:** Provides a sanitized or generic refusal for problematic assistant outputs.
+
+    ### Input Format
+
+    Conversations must adhere to this structure:
+    - **id:** A unique conversation identifier.
+    - **messages:** An array of message objects. Each message includes:
+      - **role:** "system", "user", "assistant".
+      - **content:** The message text.
+
+    Example:
+    ```xml
+    <input>
+        {
+          "id": "{{id}}",
+          "messages": [
+            { "role": "system", "content": "{{assistant_system_prompt}}" },
+            { "role": "user", "content": "{{user_message}}" },
+            { "role": "assistant", "content": "{{assistant_message}}" }
+          ]
+        }
+    </input>
+    ```
+
+    ### Implementation Notes
+    
+    - **Severity Level:** Severity levels were tested, they are not applied in the final implementation to avoid any bias.
+    - **DEEPSEEK-R1:** This is not used due to reliance on structured outputs. It may be incorporated once it supports such formats.
+    """)
 
 def main() -> None:
-    # Initialize session state
+    """Main function to render the project overview page."""
+    st.set_page_config(
+        page_title="OmniGuard Overview",
+        page_icon="🛡️"
+    )
+    
     init_session_state()
     
-    st.set_page_config(page_title="OmniGuard", page_icon=":shield:")
+    st.title("OmniGuard - Conversation Moderation System (ALPHA)")
     
-    # Render authentication status in sidebar
-    render_auth_status()
-
-    # Table of Contents in sidebar
-    st.sidebar.markdown("## Table of Contents")
-    st.sidebar.markdown("""
-- [Overview](#overview)
-- [System Flow](#system-flow)
-- [Configuration Details](#configuration-details)
-- [Dataset](#dataset)
-- [Project Info](#project-info)
-""", unsafe_allow_html=True)
-
-    # Render the main sections
-    render_overview()
-    render_system_flow()
-    render_configuration_details()
-    render_format_details()
-    render_input_format()
-    render_additional_notes()
+    # Create three tabs
+    overview_tab, dataset_tab, notes_tab = st.tabs(["Overview", "Dataset", "Notes"])
     
-    # Retrieve dataset stats (placeholder)
-    stats = cached_get_dataset_stats()
-    render_dataset_stats(stats)
-    render_dataset_format()
-    render_dataset_download()
-    render_project_info()
+    # Content for Overview tab
+    with overview_tab:
+        render_overview()
+        render_system_flow()
+        render_configuration_details()
+    
+    # Content for Dataset tab
+    with dataset_tab:
+        render_dataset_content()
+    
+    # Content for Notes tab
+    with notes_tab:
+        render_notes()
 
 if __name__ == "__main__":
     main()

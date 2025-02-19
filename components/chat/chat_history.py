@@ -9,26 +9,18 @@ def display_messages(messages):
 def display_debug_expanders(
     omniguard_input_message,
     omniguard_output_message,
-    assistant_messages,
-    raw_assistant_response,
-    show_unfiltered_response
+    assistant_messages
 ):
     """Display debug information in expanders."""
-    with st.expander("Message to OmniGuard", expanded=True):
-        if omniguard_input_message:
+    if omniguard_input_message:
+        with st.popover("To: OmniGuard"):
             st.json(omniguard_input_message)
         
-    with st.expander("Message from OmniGuard", expanded=True):
-        if omniguard_output_message:
+    if omniguard_output_message:
+        with st.popover("From: OmniGuard"):
             st.json(omniguard_output_message)
         
-    with st.expander("Messages to Assistant", expanded=True):
-        if assistant_messages:
+    if assistant_messages:
+        with st.popover("To: Assistant"):
             st.write(assistant_messages)
-            
-    # Show raw response if enabled
-    if show_unfiltered_response:
-        with st.expander("Raw Assistant Response (No OmniGuard)", expanded=True):
-            if raw_assistant_response:
-                st.markdown(raw_assistant_response)
-                st.warning("⚠️ This is the raw response without OmniGuard safety checks. Use with caution.")
+        

@@ -68,7 +68,5 @@ def format_conversation_context(conversation: Dict[str, Any]) -> str:
     """
     conversation_json = json.dumps(conversation, indent=2)
     return f"""<input>
-        <![CDATA[
-            {conversation_json}
-        ]]>
+        {conversation_json}
     </input>"""

@@ -1,18 +1,16 @@
 '''This page handles the chat interface, including the user input, OmniGuard checks, and message display.'''
 
 import streamlit as st
-from database import init_db
 from components.conversation_utils import build_conversation_json, format_conversation_context
 from components.chat.chat_history import display_messages, display_debug_expanders
 from components.chat.chat_sidebar import setup_sidebar
 from components.chat.user_input import process_user_message, get_user_input
 from components.chat.session_management import (
-    init_session_state,
+    init_session_state as init_chat_session_state,
     reset_session_state,
     generate_conversation_id
 )
-
-init_db()
+from components.init_session_state import init_session_state
 
 st.set_page_config(page_title="OmniGuard Chat", page_icon=":shield:")
 
@@ -23,12 +21,10 @@ def update_conversation_context():
 
 def main():
     """Main chat application."""
-    init_session_state(update_conversation_context)
-    
-    # Check for API key when data sharing is disabled
-    if st.session_state.get("contribute_training_data") is False and not st.session_state.get("api_key"):
-        st.error("An API key is required when data sharing is disabled. Please go to the Configuration page to enter your API key.")
-        st.stop()
+    # Initialize base session state first
+    init_session_state()
+    # Then initialize chat-specific session state
+    init_chat_session_state(update_conversation_context)
     
     # Setup sidebar with session management
     setup_sidebar(st.session_state, lambda: reset_session_state(update_conversation_context))
@@ -50,9 +46,7 @@ def main():
     display_debug_expanders(
         st.session_state.omniguard_input_message,
         st.session_state.omniguard_output_message,
-        st.session_state.assistant_messages,
-        st.session_state.raw_assistant_response,
-        st.session_state.show_unfiltered_response
+        st.session_state.assistant_messages
     )
 
 if __name__ == "__main__":

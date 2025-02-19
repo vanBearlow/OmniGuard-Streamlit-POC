@@ -1,7 +1,7 @@
 import streamlit as st
 import logging
 from typing import Dict, Any, Optional
-from omniguard import omniguard_check, process_omniguard_result, fetch_assistant_response
+from omniguard import omniguard_check, process_omniguard_result
 
 def process_user_message(
     user_input: str,
@@ -30,28 +30,7 @@ def process_user_message(
     with st.chat_message("user"):
         st.markdown(user_input)
 
-    handle_raw_response(user_input, session_state)
     handle_omniguard_check(user_input, session_state)
-
-def handle_raw_response(user_input: str, session_state: Dict[str, Any]) -> None:
-    """
-    Handle fetching raw assistant response if enabled.
-    
-    Args:
-        user_input: The user's input message
-        session_state: Streamlit session state containing conversation data
-    """
-    if session_state["show_unfiltered_response"]:
-        try:
-            with st.spinner("Fetching raw response..."):
-                session_state["raw_assistant_response"] = fetch_assistant_response(
-                    user_input,
-                    skip_omniguard=True
-                )
-        except Exception as ex:
-            st.error(f"Error fetching raw response: {ex}")
-            logging.exception("Exception occurred during raw response fetch")
-            session_state["raw_assistant_response"] = "Error: Could not fetch raw response"
 
 def handle_omniguard_check(user_input: str, session_state: Dict[str, Any]) -> None:
     """
@@ -62,7 +41,7 @@ def handle_omniguard_check(user_input: str, session_state: Dict[str, Any]) -> No
         session_state: Streamlit session state containing conversation data
     """
     try:
-        with st.spinner("OmniGuard..."):
+        with st.spinner("OmniGuard...", show_time=True):
             omniguard_response = omniguard_check()
     except Exception as ex:
         st.error(f"Error calling OmniGuard: {ex}")

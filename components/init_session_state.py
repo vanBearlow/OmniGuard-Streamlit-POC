@@ -24,17 +24,11 @@ def init_session_state():
     if "temperature" not in st.session_state:
         st.session_state.temperature = 1.0
     
-    # Data Sharing Settings
-    if "contribute_training_data" not in st.session_state:
-        st.session_state.contribute_training_data = True
-    
     # Conversation State
     if "messages" not in st.session_state:
         st.session_state.messages = []
     if "conversation_id" not in st.session_state:
         st.session_state.conversation_id = ""
-    if "refusal_count" not in st.session_state:
-        st.session_state.refusal_count = 0
     
     # Site Configuration
     if "site_url" not in st.session_state:
