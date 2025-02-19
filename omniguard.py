@@ -66,6 +66,44 @@ def omniguard_check(pending_assistant_response=None):
     Returns:
         str or dict: The raw OmniGuard response text if the check is successful;
             otherwise, a dictionary with an error description.
+
+    Sample Response Object:
+        {
+        "id": "chatcmpl-123",
+        "object": "chat.completion",
+        "created": 1677652288,
+        "model": "gpt-4o-mini",
+        "system_fingerprint": "fp_44709d6fcb",
+        "choices": [{
+            "index": 0,
+            "message": {
+            "role": "assistant",
+            "content": "    {
+        "conversation_id": "string",
+        "analysisSummary": "string",
+        "compliant": boolean,
+        "response": {
+            "action": "RefuseUser | RefuseAssistant",
+            "RefuseUser | RefuseAssistant": "string"
+                    }
+                }",
+            },
+            "logprobs": null,
+            "finish_reason": "stop"
+        }],
+        "service_tier": "default",
+        "usage": {
+            "prompt_tokens": 9,
+            "completion_tokens": 12,
+            "total_tokens": 21,
+            "completion_tokens_details": {
+            "reasoning_tokens": 0,
+            "accepted_prediction_tokens": 0,
+            "rejected_prediction_tokens": 0
+            }
+        }
+        }
+
     """
     try:
         # Track component timings
@@ -153,10 +191,7 @@ def omniguard_check(pending_assistant_response=None):
             # Add completion tokens details if available
             if hasattr(response.usage, 'completion_tokens_details'):
                 usage_data['completion_tokens_details'] = {
-                    'reasoning_tokens': getattr(response.usage.completion_tokens_details, 'reasoning_tokens', 0),
-                    'accepted_prediction_tokens': getattr(response.usage.completion_tokens_details, 'accepted_prediction_tokens', 0),
-                    'rejected_prediction_tokens': getattr(response.usage.completion_tokens_details, 'rejected_prediction_tokens', 0)
-                }
+                    'reasoning_tokens': getattr(response.usage.completion_tokens_details, 'reasoning_tokens', 0)}
 
         raw_content = response.choices[0].message.content or ""
 

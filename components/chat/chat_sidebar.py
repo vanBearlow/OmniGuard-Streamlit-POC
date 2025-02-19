@@ -5,8 +5,7 @@ def setup_sidebar(session_state: Dict[str, Any], reset_callback) -> None:
     """Setup the chat sidebar with controls and statistics."""
     with st.sidebar:
 
-        with st.expander("README", expanded=False):
-            st.markdown("## Quick Start Guide")
+        with st.expander("GETTING STARTED", expanded=False):
             st.markdown("""
             ### 1. Chat with OmniGuard
             Simply type your message and press Enter. Each response will include:
