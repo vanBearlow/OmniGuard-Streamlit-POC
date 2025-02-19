@@ -22,7 +22,13 @@ def display_report_form():
         )
         
         comment = st.text_area("Additional Comments For Reviewers")
-        
+        st.markdown("(Optional: Provide your name or social media handle to get credit for your contribution.)")
+
+        name = st.text_input("Name:")
+        x = st.text_input("X:") #X/twitter handle
+        discord = st.text_input("Discord:") #discord handle
+        linkedin = st.text_input("LinkedIn:")
+
         submitted = st.form_submit_button("Submit")
         if submitted:
             # TODO: Add logic to handle report submission. Should be added to Human Review Section of Metadata
