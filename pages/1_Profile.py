@@ -8,27 +8,6 @@ import uuid
 # Define allowed social platforms
 SOCIAL_PLATFORMS = ["x", "discord", "linkedin"]
 
-def calculate_profile_completion(profile: dict) -> tuple[float, list[str]]:
-    """Calculate profile completion percentage and missing fields."""
-    required_fields = ['name']
-    optional_fields = SOCIAL_PLATFORMS
-    
-    # Check required fields
-    completed_required = sum(1 for field in required_fields if profile.get(field))
-    required_score = completed_required / len(required_fields)
-    
-    # Check optional fields
-    completed_optional = sum(1 for field in optional_fields if profile.get('social_handles', {}).get(field))
-    optional_score = completed_optional / len(optional_fields)
-    
-    # Calculate total score (required fields are weighted more)
-    total_score = (required_score * 0.7) + (optional_score * 0.3)
-    
-    # Get missing required fields
-    missing_fields = [field for field in required_fields if not profile.get(field)]
-    
-    return total_score * 100, missing_fields
-
 def update_user_profile(email, social_handles=None, name=None):
     """Update user profile with new information and timestamp."""
     try:
@@ -185,17 +164,7 @@ if not user_email:
 # Get current profile
 profile = get_user_profile(user_email)
 st.header("Your Profile")
-if profile.get('picture'):
-    st.image(profile['picture'], width=150)
-completion, missing_fields = calculate_profile_completion(profile)
-st.markdown("#### Profile Completion")
-st.progress(int(completion))
-st.markdown(f"Profile is {completion:.0f}% complete.")
-if missing_fields:
-    st.info("Missing fields: " + ", ".join(missing_fields))
 st.caption(f"📧 {user_email}")
-if profile.get('created_at'):
-    st.caption(f"📅 Joined: {profile['created_at']}")
 
 # Profile content
 with st.form("profile_form",):
@@ -255,19 +224,3 @@ with st.form("profile_form",):
                 st.rerun()
             else:
                 st.error(f"Failed to save profile: {error}")
-
-if st.button("Export Profile Data", use_container_width=True):
-    profile_data = {
-        "email": user_email,
-        "name": profile.get('name'),
-        "social_handles": profile.get('social_handles'),
-        "created_at": profile.get('created_at'),
-        "completion": "N/A"
-    }
-    st.download_button(
-        "Download Profile Data",
-        data=json.dumps(profile_data, indent=2),
-        file_name="profile_data.json",
-        mime="application/json",
-        use_container_width=True
-    )

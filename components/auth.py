@@ -57,14 +57,14 @@ def render_auth_status():
         # If we reach here, dev_mode is off and we rely on real st.experimental_user
         if is_authenticated:
             user_email = getattr(st.experimental_user, "email", None) or "Unknown"
-            st.write(f"👤 Logged in as: {user_email}")
+            st.caption(f"👤 {user_email}")
             if st.button("🚪 Logout"):
                 try:
                     st.logout()
                 except Exception as e:
                     st.error(f"Logout failed: {str(e)}")
         else:
-            st.write("👤 Not logged in")
+            st.caption("👤 Not logged in")
             if st.button("🔑 Login"):
                 try:
                     st.login()

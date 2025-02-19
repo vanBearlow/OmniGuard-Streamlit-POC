@@ -4,7 +4,6 @@ from database import get_all_conversations, init_db, get_dataset_stats
 from typing import Dict, Any
 from components.auth import render_auth_status
 from components.init_session_state import init_session_state
-from components.api_balance import display_api_balance
 
 # Initialize database and session
 init_db()

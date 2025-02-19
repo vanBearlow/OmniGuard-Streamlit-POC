@@ -5,11 +5,6 @@ from typing import Dict, Any
 def setup_sidebar(session_state: Dict[str, Any], reset_callback) -> None:
     """Setup the chat sidebar with controls and statistics."""
     st.sidebar.markdown("---")
-    st.sidebar.checkbox(
-        "Show raw assistant response (no OmniGuard)?",
-        value=False,
-        key="show_unfiltered_response"
-    )
     
     if st.sidebar.button("Clear Conversation") and session_state.get("messages"):
         reset_callback()

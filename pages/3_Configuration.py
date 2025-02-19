@@ -89,6 +89,11 @@ with st.form("configuration_form"):
     )
     st.session_state.contribute_training_data = contribute
 
+    # Move submit button here, before the conditional logic
+    col1, col2 = st.columns([1, 4])
+    with col1:
+        submitted = st.form_submit_button("Save Changes", use_container_width=True)
+
     if not contribute:
         if st.experimental_user.get("is_logged_in", False):
             from database import get_connection
@@ -121,19 +126,12 @@ with st.form("configuration_form"):
                     conn.commit()
                     conn.close()
                     st.success("API key saved to your profile")
-                else:
-                    st.error("An API key is required when data sharing is disabled.")
-                    st.stop()
         else:
             st.info("To continue using OmniGuard without sharing your interaction data, please enter your OpenRouter API Key")
             user_api_key = st.text_input("OpenRouter API Key", type="password", key="api_key_input")
             if user_api_key:
                 st.session_state.api_key = user_api_key
-            else:
-                st.error("An API key is required when data sharing is disabled.")
-                st.stop()
 
-    submitted = st.form_submit_button("Save Changes")
     if submitted:
         st.session_state.omniguard_configuration = updated_omniguard_config
         st.session_state.assistant_system_prompt = updated_assistant_prompt
