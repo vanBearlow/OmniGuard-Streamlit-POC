@@ -16,7 +16,7 @@ def init_session_state():
     if "selected_omniguard_model" not in st.session_state:
         st.session_state.selected_omniguard_model = "o3-mini-2025-01-31"
     if "selected_assistant_model" not in st.session_state:
-        st.session_state.selected_assistant_model = "gpt-4o-mini"
+        st.session_state.selected_assistant_model = "gpt-4o-mini-2024-07-18"
     
     # Model Parameters
     if "selected_reasoning" not in st.session_state:
@@ -31,7 +31,8 @@ def init_session_state():
         st.session_state.conversation_id = ""
     
     # Site Configuration
+    #TODO: add site_url and site_name to the session state
     if "site_url" not in st.session_state:
-        st.session_state.site_url = "https://example.com"
+        st.session_state.site_url = ""
     if "site_name" not in st.session_state:
         st.session_state.site_name = "OmniGuard"

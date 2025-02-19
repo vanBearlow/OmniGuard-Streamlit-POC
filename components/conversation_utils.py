@@ -59,14 +59,8 @@ def extract_messages_from_input(input_text: str) -> Optional[List[Dict[str, str]
 def format_conversation_context(conversation: Dict[str, Any]) -> str:
     """
     Formats a conversation dictionary into the XML-like structure expected by the system.
-    
-    Args:
-        conversation: Dictionary containing conversation data
-        
-    Returns:
-        Formatted string with conversation JSON wrapped in input and CDATA tags
     """
-    conversation_json = json.dumps(conversation, indent=2)
+    conversation_json = json.dumps(conversation, indent=4)
     return f"""<input>
         {conversation_json}
     </input>"""

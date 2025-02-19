@@ -60,7 +60,7 @@ st.title("Configuration")
 with st.form("configuration_form"):
     with st.expander("OmniGuard", expanded=False):
         st.subheader("Model Settings")
-        st.write("`OmniGuard model is currently fixed to o3-mini-2025-01-31.`")
+        st.write("`OmniGuard model is fixed to o3-mini-2025-01-31.`")
         selected_omniguard_model = "o3-mini-2025-01-31" #st.selectbox(
         #    "Select OmniGuard model",
         #    ["o1-2024-12-17", "o3-mini-2025-01-31"],
@@ -92,7 +92,7 @@ with st.form("configuration_form"):
         st.subheader("Model Settings")
         selected_assistant_model = st.selectbox(
             "Select Assistant model",
-            ["gpt-4o", "gpt-4o-mini", "o1-2024-12-17", "o3-mini-2025-01-31"],
+            ["gpt-4o-2024-05-13", "gpt-4o-mini-2024-07-18", "o1-2024-12-17", "o3-mini-2025-01-31"],
             index=1,
             key="assistant_model_select"
         )

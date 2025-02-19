@@ -6,43 +6,7 @@ from openai import OpenAI
 from openai import APIError, RateLimitError
 import requests.exceptions
 import logging
-from components.init_session_state import init_session_state
-from datetime import datetime
-
-# Cost per token in USD based on model
-MODEL_COSTS = {
-    # GPT-4o versions
-    "gpt-4o-2024-08-06": {"input": 2.50, "cached_input": 1.25, "output": 10.00},
-    "gpt-4o-2024-11-20": {"input": 2.50, "cached_input": 1.25, "output": 10.00},
-    "gpt-4o-2024-05-13": {"input": 5.00, "output": 15.00},
-    # GPT-4o-mini versions
-    "gpt-4o-mini-2024-07-18": {"input": 0.15, "cached_input": 0.075, "output": 0.60},
-    # O1 versions
-    "o1-2024-12-17": {"input": 15.00, "cached_input": 7.50, "output": 60.00},
-    "o1-preview-2024-09-12": {"input": 15.00, "cached_input": 7.50, "output": 60.00},
-    
-    # O3-mini versions
-    "o3-mini-2025-01-31": {"input": 1.10, "cached_input": 0.55, "output": 4.40},
-    
-    # O1-mini versions
-    "o1-mini-2024-09-12": {"input": 1.10, "cached_input": 0.55, "output": 4.40}
-}
-
-def calculate_costs(model_name, prompt_tokens, completion_tokens, is_cached=False):
-    """Calculate costs based on token usage."""
-    if model_name not in MODEL_COSTS:
-        logger.warning(f"Unknown model for cost calculation: {model_name}")
-        return None, None, None
-    
-    costs = MODEL_COSTS[model_name]
-    input_rate = costs["cached_input"] if is_cached and "cached_input" in costs else costs["input"]
-    output_rate = costs["output"]
-    
-    input_cost = (prompt_tokens / 1000) * input_rate
-    output_cost = (completion_tokens / 1000) * output_rate
-    total_cost = input_cost + output_cost
-    
-    return input_cost, output_cost, total_cost
+from components.cost_utils import calculate_costs
 
 logger = logging.getLogger(__name__)
 
@@ -133,13 +97,10 @@ def omniguard_check(pending_assistant_response=None):
         
         # Format omniguard_evaluation_input with configuration
         omniguard_config = st.session_state.omniguard_configuration
-        omniguard_evaluation_input_str = (
-            f"<configuration>{omniguard_config}</configuration>"
-            f"{conversation_context}"
-        )
 
         omniguard_evaluation_input = [
-            {"role": "developer", "content": omniguard_evaluation_input_str}
+            {"role": "developer", "content": omniguard_config},
+            {"role": "user", "content": conversation_context}
         ]
         
         # Get model-specific parameters
@@ -282,19 +243,6 @@ def process_omniguard_result(omniguard_result, user_prompt, context):
                 st.markdown(response_text)
                 st.session_state.messages.append({"role": "assistant", "content": response_text})
                 
-                # Save user message refusal
-                conversation_data = {
-                    "messages": st.session_state.messages,
-                    "omniguard_evaluation_input": st.session_state.omniguard_input_message,
-                    "omniguard_raw_response": omniguard_raw_response
-                }
-                metadata_data = {
-                    "user_violates_rules": True,
-                    "assistant_violates_rules": False,
-                    "refusal_reason": analysis_summary,
-                    "conversation_id": conversation_id,
-                    "updated_at": datetime.utcnow().isoformat() + "Z"
-                }
                 return
 
             # Get assistant response if user message allowed
@@ -345,7 +293,7 @@ def process_omniguard_result(omniguard_result, user_prompt, context):
 
 def fetch_assistant_response(prompt_text):
     """
-    When OmniGuard allows the content, this queries the Assistant.
+    When OmniGuard returns compliant=False, this queries the Assistant.
     """
     try:
         # Track component timings
@@ -413,10 +361,7 @@ def fetch_assistant_response(prompt_text):
             # Add completion tokens details if available
             if hasattr(response.usage, 'completion_tokens_details'):
                 usage_data['completion_tokens_details'] = {
-                    'reasoning_tokens': getattr(response.usage.completion_tokens_details, 'reasoning_tokens', 0),
-                    'accepted_prediction_tokens': getattr(response.usage.completion_tokens_details, 'accepted_prediction_tokens', 0),
-                    'rejected_prediction_tokens': getattr(response.usage.completion_tokens_details, 'rejected_prediction_tokens', 0)
-                }
+                    'reasoning_tokens': getattr(response.usage.completion_tokens_details, 'reasoning_tokens', 0)}
         
         # Calculate costs with error handling
         model_name = st.session_state.selected_assistant_model
@@ -455,142 +400,3 @@ def fetch_assistant_response(prompt_text):
         logger.exception("Unexpected Error")
         return "An unexpected error occurred. Please try again."
 
-def check_rule_violation(report_info, conversation_context):
-    """Check for rule violations in the reported conversation."""
-    try:
-        # Track component timings
-        timings = {
-            'start': time.time(),
-            'prep': 0,
-            'api': 0,
-            'process': 0
-        }
-        
-        client = get_openai_client()
-        from components.conversation_utils import format_conversation_context
-        
-        # Format omniguard_evaluation_input with configuration and input
-        omniguard_evaluation_input_str = (
-            f"<configuration>{st.session_state.omniguard_configuration}</configuration>"
-            f"{conversation_context}"  # conversation_context is already properly formatted
-        )
-        
-        prompt = (
-            "Verify if any rules were violated using the full conversation context and report details. "
-            "Return a JSON object with keys 'input_violates_rules' and 'output_violates_rules', both booleans. True "
-            f"{omniguard_evaluation_input_str} "
-            f"<report>{report_info}</report>"
-        )
-        
-        # Get model-specific parameters for OmniGuard
-        model_params = get_model_params(st.session_state.selected_omniguard_model, is_omniguard=True)
-        
-        # Record preparation time
-        timings['prep'] = time.time() - timings['start']
-        
-        # API call timing
-        api_start = time.time()
-        try:
-            response = client.chat.completions.create(
-                extra_headers={
-                    "HTTP-Referer": st.session_state.get("site_url", "https://example.com"),
-                    "X-Title": st.session_state.get("site_name", sitename),
-                },
-                model=st.session_state.selected_omniguard_model,
-                messages=[{"role": "system", "content": prompt}],
-                **model_params
-            )
-        except RateLimitError as e:
-            logger.error(f"Rate limit exceeded in check_rule_violation: {e}")
-            raise
-        except APIError as e:
-            logger.error(f"OpenAI API error in check_rule_violation: {e}")
-            raise
-        except requests.exceptions.RequestException as e:
-            logger.error(f"Network error in check_rule_violation: {e}")
-            raise
-        
-        timings['api'] = time.time() - api_start
-        
-        # Process timing start
-        process_start = time.time()
-        
-        # Capture complete usage data
-        usage_data = {}
-        if hasattr(response, 'usage'):
-            usage_data = {
-                'prompt_tokens': response.usage.prompt_tokens,
-                'completion_tokens': response.usage.completion_tokens,
-                'total_tokens': response.usage.total_tokens
-            }
-            # Add completion tokens details if available
-            if hasattr(response.usage, 'completion_tokens_details'):
-                usage_data['completion_tokens_details'] = {
-                    'reasoning_tokens': getattr(response.usage.completion_tokens_details, 'reasoning_tokens', 0),
-                    'accepted_prediction_tokens': getattr(response.usage.completion_tokens_details, 'accepted_prediction_tokens', 0),
-                    'rejected_prediction_tokens': getattr(response.usage.completion_tokens_details, 'rejected_prediction_tokens', 0)
-                }
-        
-        # Calculate costs with error handling
-        model_name = st.session_state.selected_omniguard_model
-        is_cached = st.session_state.get("use_cached_input", False)
-        try:
-            input_cost, output_cost, total_cost = calculate_costs(
-                model_name,
-                usage_data.get('prompt_tokens', 0),
-                usage_data.get('completion_tokens', 0),
-                is_cached
-            )
-        except Exception as e:
-            logger.error(f"Cost calculation error in check_rule_violation: {e}")
-            input_cost = output_cost = total_cost = 0
-        
-        result_text = response.choices[0].message.content.strip()
-        try:
-            parsed_response = json.loads(result_text)
-            # Extract violation information from the new format
-            compliant = parsed_response.get("compliant", True)
-            analysis_summary = parsed_response.get("analysisSummary", "")
-            response_data = parsed_response.get("response", {})
-            
-            # Determine which type of violation occurred based on the response action
-            action = response_data.get("action", "")
-            violation_result = {
-                "input_violates_rules": action == "RefuseUser",
-                "output_violates_rules": action == "RefuseAssistant"
-            }
-        except json.JSONDecodeError as e:
-            logger.error(f"Failed to parse violation check response: {e}")
-            violation_result = {"input_violates_rules": False, "output_violates_rules": False}
-        
-        # Record process timing
-        timings['process'] = time.time() - process_start
-        
-        # Calculate total latency
-        latency = int((time.time() - timings['start']) * 1000)
-        
-        return violation_result
-
-    except RateLimitError as e:
-        logger.exception("Rate limit exceeded in check_rule_violation")
-        return {"input_violates_rules": False, "output_violates_rules": False}
-    except APIError as e:
-        logger.exception("OpenAI API Error in check_rule_violation")
-        return {"input_violates_rules": False, "output_violates_rules": False}
-    except requests.exceptions.RequestException as e:
-        logger.exception("Network Error in check_rule_violation")
-        return {"input_violates_rules": False, "output_violates_rules": False}
-    except Exception as e:
-        logger.exception("Unexpected Error in check_rule_violation")
-        return {"input_violates_rules": False, "output_violates_rules": False}
-
-def assess_rule_violation(report_info, conversation_context):
-    """
-    Evaluate rule violations using the same approach as check_rule_violation.
-    This function is intended for the Human Verification page.
-    """
-    try:
-        return check_rule_violation(report_info, conversation_context)
-    except Exception as e:
-        logger.exception("Error in assess_rule_violation")
-        return {"input_violates_rules": False, "output_violates_rules": False}
