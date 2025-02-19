@@ -69,8 +69,8 @@ def handle_omniguard_check(user_input: str, session_state: Dict[str, Any]) -> No
         logging.exception("Exception occurred during OmniGuard call")
         omniguard_response = {
             "response": {
-                "action": "UserInputRejection",
-                "UserInputRejection": "Safety system unavailable - please try again"
+                "action": "UserInputRefusal",
+                "UserInputRefusal": "Safety system unavailable - please try again"
             }
         }
 

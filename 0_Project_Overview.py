@@ -1,28 +1,32 @@
 import streamlit as st
-from prompts import omniguard_configuration
-from database import get_all_conversations, init_db, get_dataset_stats
 from typing import Dict, Any
 from components.auth import render_auth_status
 from components.init_session_state import init_session_state
 
-# Initialize database and session
-init_db()
-init_session_state()
-
-st.set_page_config(page_title="OmniGuard", page_icon=":shield:")  # never use layout="wide"
-
-# Render authentication status in sidebar
-render_auth_status()
-
-# Table of Contents in sidebar
-st.sidebar.markdown("## Table of Contents")
-st.sidebar.markdown("""
-- [Overview](#overview)
-- [System Flow](#system-flow)
-- [Configuration Details](#configuration-details)
-- [Dataset](#dataset)
-- [Project Info](#project-info)
-""", unsafe_allow_html=True)
+# TODO: Replace with Supabase or other DB fetch for dataset stats
+def cached_get_dataset_stats() -> Dict[str, Any]:
+    """
+    Returns dataset statistics. Currently a placeholder.
+    Replace this with a Supabase call or other logic as needed.
+    """
+    return {
+        "total_sets": 0,
+        "total_contributors": 0,
+        "user_violations": 0,
+        "assistant_violations": 0,
+        "human_verified_user_violations": 0,
+        "human_verified_assistant_violations": 0,
+        "total_user_violations": 0,
+        "total_assistant_violations": 0,
+        "total_prompt_tokens": 0,
+        "total_completion_tokens": 0,
+        "total_tokens": 0,
+        "total_input_cost": 0.0,
+        "total_output_cost": 0.0,
+        "total_cost": 0.0,
+        "avg_latency_ms": 0,
+        "needed_human_verification": 0
+    }
 
 def render_overview() -> None:
     st.markdown('<a name="overview"></a>', unsafe_allow_html=True)
@@ -36,7 +40,7 @@ def render_overview() -> None:
     - OmniGuard actively sanitizes minor violations and probes for clarification in ambiguous cases, thereby preserving an engaging and meaningful dialogue while upholding safety standards.
     - The system effectively mitigates the majority of potential violations and attacks through its comprehensive rule set and reasoning-based approach. Together, we're building a safer, more robust AI ecosystem. Each contribution strengthens our collective defense against emerging threats, benefiting the entire AI community.
     """)
-  
+
 def render_system_flow() -> None:
     st.markdown('<a name="system-flow"></a>', unsafe_allow_html=True)
     st.markdown("---")
@@ -78,6 +82,8 @@ def render_configuration_details() -> None:
     """)
     
     with st.expander("Default Configuration:"):
+        # We keep the string import logic for demonstration but removed database calls
+        from prompts import omniguard_configuration
         st.code(omniguard_configuration, language="xml")
         st.write("`4111 Tokens`")
 
@@ -100,8 +106,8 @@ def render_format_details() -> None:
     - **json_output_schema:** The structured JSON for OmniGuard's output.
     - **actions:** The possible responses:
       - **allow:** Proceeds normally if no violations are detected.
-      - **UserInputRejection:** Returns a succinct, neutral refusal for problematic user inputs.
-      - **AssistantOutputRejection:** Provides a sanitized or generic refusal for problematic assistant outputs.
+      - **UserInputRefusal:** Returns a succinct, neutral refusal for problematic user inputs.
+      - **AssistantOutputRefusal:** Provides a sanitized or generic refusal for problematic assistant outputs.
     """)
 
 def render_input_format() -> None:
@@ -139,10 +145,6 @@ def render_additional_notes() -> None:
     - **DEEPSEEK-R1:** This is not used due to reliance on structured outputs. It may be incorporated once it supports such formats.
     """)
 
-@st.cache_data(show_spinner=False)
-def cached_get_dataset_stats() -> Dict[str, Any]:
-    return get_dataset_stats()
-
 def render_dataset_stats(stats: Dict[str, Any]) -> None:
     st.markdown("---")
     st.markdown('<a name="dataset"></a>', unsafe_allow_html=True)
@@ -153,7 +155,10 @@ def render_dataset_stats(stats: Dict[str, Any]) -> None:
         return
         
     # Calculate percentage of conversations needing human verification
-    verification_percentage = (stats['needed_human_verification'] / stats['total_sets'] * 100) if stats['total_sets'] > 0 else 0
+    verification_percentage = (
+        stats['needed_human_verification'] / stats['total_sets'] * 100
+        if stats['total_sets'] > 0 else 0
+    )
     
     st.markdown(f"""
     ### Total Interactions: `{stats['total_sets']:,}`  
@@ -199,9 +204,9 @@ def render_dataset_format() -> None:
             "conversation_id": "string",
             "analysisSummary": "Short note on triggered rules or 'No violations'.",
             "response": {
-              "action": "allow | UserInputRejection | AssistantOutputRejection",
-              "UserInputRejection": "string",
-              "AssistantOutputRejection": "string"
+              "action": "allow | UserInputRefusal | AssistantOutputRefusal",
+              "UserInputRefusal": "string",
+              "AssistantOutputRefusal": "string"
             }
           },
           "assistant_output": "Final response from assistant (if OmniGuard allowed the content)",
@@ -224,42 +229,8 @@ def render_dataset_format() -> None:
         """)
 
 def render_dataset_download() -> None:
-    # Initialize download progress
-    progress_placeholder = st.empty()
-    
-    # Get first page to get total pages
-    result = get_all_conversations(export_format="jsonl", page=1)
-    total_pages = result["total_pages"]
-    
-    if total_pages == 0:
-        st.info("No data available for download.")
-        return
-    
-    # Collect all pages
-    all_data = []
-    progress_bar = st.progress(0)
-    
-    for page in range(1, total_pages + 1):
-        progress_placeholder.text(f"Preparing download... Page {page} of {total_pages}")
-        result = get_all_conversations(export_format="jsonl", page=page)
-        all_data.append(result["data"])
-        progress_bar.progress(page / total_pages)
-    
-    # Combine all pages
-    complete_data = "\n".join(all_data)
-    
-    # Clear progress indicators
-    progress_placeholder.empty()
-    progress_bar.empty()
-    
-    # Show download button with improved tooltip for accessibility
-    st.download_button(
-        label="Download Complete Dataset",
-        data=complete_data,
-        file_name="training_data.jsonl",
-        mime="application/jsonl",
-        help="Click to download the complete dataset. Contains all records available."
-    )
+    # TODO: Implement dataset export from Supabase or other data store
+    st.info("Dataset export is not implemented. Replace with your Supabase download logic.")
 
 def render_project_info() -> None:
     st.markdown("---")
@@ -282,6 +253,25 @@ def render_project_info() -> None:
         """)
 
 def main() -> None:
+    # Initialize session state
+    init_session_state()
+    
+    st.set_page_config(page_title="OmniGuard", page_icon=":shield:")
+    
+    # Render authentication status in sidebar
+    render_auth_status()
+
+    # Table of Contents in sidebar
+    st.sidebar.markdown("## Table of Contents")
+    st.sidebar.markdown("""
+- [Overview](#overview)
+- [System Flow](#system-flow)
+- [Configuration Details](#configuration-details)
+- [Dataset](#dataset)
+- [Project Info](#project-info)
+""", unsafe_allow_html=True)
+
+    # Render the main sections
     render_overview()
     render_system_flow()
     render_configuration_details()
@@ -289,8 +279,8 @@ def main() -> None:
     render_input_format()
     render_additional_notes()
     
-    with st.spinner("Loading dataset statistics..."):
-        stats = cached_get_dataset_stats()
+    # Retrieve dataset stats (placeholder)
+    stats = cached_get_dataset_stats()
     render_dataset_stats(stats)
     render_dataset_format()
     render_dataset_download()

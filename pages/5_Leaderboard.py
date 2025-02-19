@@ -50,7 +50,7 @@ with tabs[0]:
         fig = px.bar(
             top_contributors,
             x="contributor",
-            y=["verified_harmful_prompts", "assistant_rejections"],
+            y=["verified_harmful_prompts", "assistant_refusals"],
             title=f"Top {top_n} Contributors by Verified Harmful Prompts",
             labels={
                 "contributor": "Contributor",
@@ -60,7 +60,7 @@ with tabs[0]:
             barmode="group"
         )
         st.plotly_chart(fig, use_container_width=True)
-        st.caption("Bar chart comparing verified harmful prompts and assistant rejections for each contributor.")
+        st.caption("Bar chart comparing verified harmful prompts and assistant refusals for each contributor.")
         
         st.subheader("Detailed Leaderboard")
         # Add rank column and format the leaderboard table
@@ -71,7 +71,7 @@ with tabs[0]:
         df = df.rename(columns={
             "contributor": "Contributor",
             "verified_harmful_prompts": "Verified Harmful Prompts",
-            "assistant_rejections": "Assistant Rejections",
+            "assistant_refusals": "Assistant Refusals",
             "total_contributions": "Total Contributions",
             "success_rate": "Success Rate"
         })
@@ -82,7 +82,7 @@ with tabs[0]:
                 "Verified Harmful Prompts": st.column_config.NumberColumn(
                     help="Number of prompts verified as harmful by human reviewers"
                 ),
-                "Assistant Rejections": st.column_config.NumberColumn(
+                "Assistant Refusals": st.column_config.NumberColumn(
                     help="Number of prompts where the assistant output was flagged as harmful"
                 ),
                 "Success Rate": st.column_config.TextColumn(
@@ -98,7 +98,7 @@ with tabs[0]:
             
             - **Verified Harmful Prompts**: Number of prompts that were verified as harmful through human review. This is our primary metric for ranking contributors.
             
-            - **Assistant Rejections**: Cases where the prompt wasn't flagged as harmful by automated checks, but the assistant's output was flagged as harmful.
+            - **Assistant Refusals**: Cases where the prompt wasn't flagged as harmful by automated checks, but the assistant's output was flagged as harmful.
             
             - **Success Rate**: Percentage of a contributor's total submissions that were verified as harmful prompts.
             """)

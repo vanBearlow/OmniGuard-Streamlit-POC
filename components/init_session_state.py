@@ -33,8 +33,8 @@ def init_session_state():
         st.session_state.messages = []
     if "conversation_id" not in st.session_state:
         st.session_state.conversation_id = ""
-    if "rejection_count" not in st.session_state:
-        st.session_state.rejection_count = 0
+    if "refusal_count" not in st.session_state:
+        st.session_state.refusal_count = 0
     
     # Site Configuration
     if "site_url" not in st.session_state:

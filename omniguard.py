@@ -231,8 +231,8 @@ def omniguard_check(pending_assistant_response=None):
             except json.JSONDecodeError as e:
                 logger.error(f"Failed to parse OmniGuard response: {e}")
                 action = ""
-            user_violates_rules = (action == "UserInputRejection")
-            assistant_violates_rules = (action == "AssistantOutputRejection")
+            user_violates_rules = (action == "UserInputRefusal")
+            assistant_violates_rules = (action == "AssistantOutputRefusal")
             # Record process timing
             timings['process'] = time.time() - process_start
             
@@ -278,8 +278,8 @@ def omniguard_check(pending_assistant_response=None):
         logger.exception("OpenAI API Error in OmniGuard")
         error_response = {
             "response": {
-                "action": "UserInputRejection",
-                "UserInputRejection": f"OmniGuard API error - {str(e)}"
+                "action": "UserInputRefusal",
+                "UserInputRefusal": f"OmniGuard API error - {str(e)}"
             }
         }
         return json.dumps(error_response)
@@ -287,8 +287,8 @@ def omniguard_check(pending_assistant_response=None):
         logger.exception("Network Error in OmniGuard")
         error_response = {
             "response": {
-                "action": "UserInputRejection",
-                "UserInputRejection": f"OmniGuard network error - {str(e)}"
+                "action": "UserInputRefusal",
+                "UserInputRefusal": f"OmniGuard network error - {str(e)}"
             }
         }
         return json.dumps(error_response)
@@ -296,23 +296,23 @@ def omniguard_check(pending_assistant_response=None):
         logger.exception("JSON Parsing Error in OmniGuard")
         return {
             "response": {
-                "action": "UserInputRejection",
-                "UserInputRejection": f"OmniGuard response parsing error - {str(e)}"
+                "action": "UserInputRefusal",
+                "UserInputRefusal": f"OmniGuard response parsing error - {str(e)}"
             }
         }
     except Exception as e:
         logger.exception("Unexpected Error in OmniGuard")
         error_response = {
             "response": {
-                "action": "UserInputRejection",
-                "UserInputRejection": f"OmniGuard system error - {str(e)}"
+                "action": "UserInputRefusal",
+                "UserInputRefusal": f"OmniGuard system error - {str(e)}"
             }
         }
         return json.dumps(error_response)
 
 def process_omniguard_result(omniguard_result, user_prompt, context):
     """
-    Based on the OmniGuard response, either show the rejection message (if a violation is found)
+    Based on the OmniGuard response, either show the refusal message (if a violation is found)
     or query the Assistant and verify its response before showing.
     """
     try:
@@ -330,13 +330,13 @@ def process_omniguard_result(omniguard_result, user_prompt, context):
             
             if user_violates:
                 # User message rejected
-                st.session_state.rejection_count += 1
-                response_text = parsed_response.get("response", {}).get("UserInputRejection", "Content blocked for safety reasons.")
+                st.session_state.refusal_count += 1
+                response_text = parsed_response.get("response", {}).get("UserInputRefusal", "Content blocked for safety reasons.")
                 
                 st.markdown(response_text)
                 st.session_state.messages.append({"role": "assistant", "content": response_text})
                 
-                # Save user message rejection
+                # Save user message refusal
                 if st.session_state.get("contribute_training_data", False):
                     save_conversation(
                         st.session_state.conversation_id,
@@ -364,14 +364,14 @@ def process_omniguard_result(omniguard_result, user_prompt, context):
             
             if assistant_violates:
                 # Assistant response rejected
-                st.session_state.rejection_count += 1
+                st.session_state.refusal_count += 1
                 try:
                     response_text = (
-                        assistant_check["response"].get("AssistantOutputRejection")
+                        assistant_check["response"].get("AssistantOutputRefusal")
                         or "Assistant response blocked for safety reasons."
                     )
                 except (TypeError, KeyError) as e:
-                    logger.error(f"Error accessing assistant rejection message: {e}")
+                    logger.error(f"Error accessing assistant refusal message: {e}")
                     response_text = "Assistant response blocked for safety reasons."
             else:
                 # Both checks passed

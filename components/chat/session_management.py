@@ -21,7 +21,7 @@ def reset_session_state(update_conversation_context: Callable) -> None:
     st.session_state.base_conversation_id = str(uuid.uuid4())
     st.session_state.turn_number = 1
     st.session_state.conversation_id = generate_conversation_id(st.session_state.turn_number)
-    st.session_state.rejection_count = 0
+    st.session_state.refusal_count = 0
     st.session_state.omniguard_input_message = None
     st.session_state.omniguard_output_message = None
     st.session_state.assistant_messages = None
@@ -58,8 +58,8 @@ def init_session_state(update_conversation_context: Callable) -> None:
         st.session_state.show_report_violation_form = False
     
     # Metrics & Counters
-    if "rejection_count" not in st.session_state:
-        st.session_state.rejection_count = 0
+    if "refusal_count" not in st.session_state:
+        st.session_state.refusal_count = 0
     
     # Context Management
     if "conversation_context" not in st.session_state:

@@ -14,7 +14,7 @@ def setup_sidebar(session_state: Dict[str, Any], reset_callback) -> None:
         session_state["show_report_violation_form"] = True
 
     display_violation_form(session_state)
-    display_rejection_stats()
+    display_refusal_stats()
 
 def display_violation_form(session_state: Dict[str, Any]) -> None:
     """Display the violation reporting form in the sidebar."""
@@ -43,30 +43,30 @@ def display_violation_form(session_state: Dict[str, Any]) -> None:
                         assistant_violates_rules=violation_result.get("output_violates_rules", False)
                     )
 
-def display_rejection_stats() -> None:
-    """Display rejection statistics in the sidebar."""
+def display_refusal_stats() -> None:
+    """Display refusal statistics in the sidebar."""
     stats = get_dataset_stats(max_retries=3, retry_delay=1)
     if not stats:
         st.sidebar.warning("⚠️ Statistics temporarily unavailable")
         return
         
     st.sidebar.markdown("---")
-    st.sidebar.markdown("### Rejection Statistics")
+    st.sidebar.markdown("### Refusal Statistics")
     
-    # Display auto-detected and human-verified rejections
+    # Display auto-detected and human-verified refusals
     st.sidebar.markdown(f"""
-    | Role | Auto-Rejections | Human-Verified | Total |
+    | Role | Auto-Refusals | Human-Verified | Total |
     |------|----------------|----------------|-------|
     | User | `{stats['user_violations']}` | `{stats['human_verified_user_violations']}` | `{stats['total_user_violations']}` |
     | Assistant | `{stats['assistant_violations']}` | `{stats['human_verified_assistant_violations']}` | `{stats['total_assistant_violations']}` |
     """, help="""
-    This table shows rule rejection statistics:
+    This table shows rule refusal statistics:
     
-    - Auto-Rejections: Messages automatically rejected by OmniGuard
-    - Human-Verified: Rejections that have been manually confirmed by human reviewers
-    - Total: Combined count of both auto-rejected and human-verified rejections
+    - Auto-Refusals: Messages automatically rejected by OmniGuard
+    - Human-Verified: Refusals that have been manually confirmed by human reviewers
+    - Total: Combined count of both auto-rejected and human-verified refusals
     
-    For each role (User/Assistant), we track rejections to maintain safety and improve the system's accuracy. A higher number of human-verified rejections may indicate areas where the automatic detection needs improvement.""")
+    For each role (User/Assistant), we track refusals to maintain safety and improve the system's accuracy. A higher number of human-verified refusals may indicate areas where the automatic detection needs improvement.""")
     
     # Display verification queue status
     if stats['needed_human_verification'] > 0:
