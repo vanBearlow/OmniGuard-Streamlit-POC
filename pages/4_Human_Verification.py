@@ -5,4 +5,4 @@ from datetime import datetime, timezone
 
 st.set_page_config(page_title="Human Verification", page_icon=":shield:")
 
-st.write("Human Verification coming soon!")
+st.subheader("Coming Soon")
