@@ -7,45 +7,42 @@ def render_overview() -> None:
     ## 1. Component Overview
 
     - **OmniGuard** is a reasoning based conversation moderation system for text-based LLM interactions.
-    - It continuously runs rule violation assessments for each turn of user and assistant messages against a configurable set of content rules.
-    - OmniGuard actively sanitizes minor violations and probes for clarification in ambiguous cases, thereby preserving an engaging and meaningful dialogue while upholding safety standards.
-    - The system effectively mitigates the majority of potential violations and attacks through its comprehensive rule set and reasoning-based approach. Together, we're building a safer, more robust AI ecosystem that strengthens our collective defense against emerging threats.
+    - It assesses each turn of user and assistant messages against a configurable set of content rules.
+    - OmniGuard can sanitize minor violations and probe for clarification in ambiguous cases, thereby preserving an engaging and meaningful dialogue while upholding safety standards.
+    - The system effectively mitigates the majority of potential violations and attacks through its comprehensive rule set and reasoning capabilities.
+      
     
-    >Note: This is not intended to be a full AI security solution; rather, it is designed to effectively protect wrappers from most attacks without decreasing the performance of the Assistant.</span>
-    """, unsafe_allow_html=True)
-
-def render_system_flow() -> None:
-    st.markdown("---")
-    st.markdown("""
-    ## 2. System Flow
-
-    1. **Configuration**  
-       - The safety configuration which includes the Purpose, Instructions, and Rules is injected into the `role.developer.content` field.
-       - This configuration primes OmniGuard with all necessary guidelines and behavioral protocols before any messages are processed.
-    
-    2. **Message Handling**  
-       - OmniGuard inspects every incoming message to assess compliance with the active rules.
-       - If a violation is detected, OmniGuard either sanitizes minor issues or, in cases of major violations, replaces the message with a safe, generic refusal.
-       - When ambiguity exists, OmniGuard proactively asks for clarification to fully understand the user's intent before finalizing a moderation decision.
+    > **Note:** This is not intended to be a full AI security solution; rather, it is designed to effectively protect wrappers and agents from most attacks without decreasing the performance.
     """)
 
-def render_configuration_details() -> None:
+def render_system_and_configuration() -> None:
     st.markdown("---")
-    st.markdown("""
-    ## 3. Configuration Details
+    st.markdown("""    ## 2. System Flow and Configuration
 
-    ### 3.1 Configuration and Input Injection Strategy
-
-    Inject these components using the following message format:
-    ```json
-    { "role": "developer", "content": {"type": "text", "text": "<CONFIGURATION>"} }
-    { "role": "user", "content": {"type": "text", "text": "<INPUT>"} }
-    ```
-    """)
+    ### 2.1 Operational Flow
+    1. **Configuration Initialization**  
+       - The safety configuration (Purpose, Instructions, and Rules) is injected into the `role.developer.content` field
+       - This primes OmniGuard with all necessary guidelines and behavioral protocols
     
-    st.markdown("### 3.2 OmniGuard Configuration")
+    2. **Message Processing**  
+       - OmniGuard inspects every incoming message against active rules
+       - Violations are handled through:
+         - Sanitization for minor issues
+         - Safe, generic refusal for major violations
+         - Clarification requests for ambiguous cases
+
+    ### 2.2 Configuration Components""")
+
+    with st.expander("Default Configuration:"):
+        # We keep the string import logic for demonstration but removed database calls
+        from prompts import omniguard_configuration
+        st.code(omniguard_configuration, language="xml")
+        st.write("`4111 Tokens`")
+
     st.markdown("""
-    The configuration is composed of three main components:
+
+
+    The configuration consists of three main elements:
     
     - **Purpose:** Defines OmniGuard as a reasoning-based moderation layer that evaluates and safeguards conversational content through dynamic moderation and context understanding.
     - **Instructions:** Comprehensive guidelines covering:
@@ -54,7 +51,7 @@ def render_configuration_details() -> None:
         - Response strategies for violations
         - Maintaining conversational engagement
         - Input format requirements
-    - **Rules:** Organized into three major groups:
+    - **Rules:** Organized into three major groups :
         1. **Content Moderation (CM):** Rules for detecting hate speech, explicit content, and inflammatory language
         2. **Data Leakage Prevention (DLP):** Protection against PII exposure, corporate data leaks, and credential sharing
         3. **Adversarial Attacks (AA):** Comprehensive defenses against:
@@ -70,21 +67,17 @@ def render_configuration_details() -> None:
             - Jailbreak Chaining Methods
             - Instruction-Following Bias Exploitation
             - Multimodal Adversarial Attacks
+            > **Note:** These are sample rules intended to be modified based on your application's specific security requirements.
 
-    > **Note:** The rules presented above are configured as test rules for this application. They are designed to be modified and updated based on your specific needs. You can customize the rule sets, add new rules, or modify existing ones to align with your organization's security requirements and use cases.
-    """)
-    
-    with st.expander("Default Configuration:"):
-        # We keep the string import logic for demonstration but removed database calls
-        from prompts import omniguard_configuration
-        st.code(omniguard_configuration, language="xml")
-        st.write("`4111 Tokens`")
+    ### 2.3 Implementation Format
 
-    st.markdown("""
-    ### 3.3 Format Details
+    #### Configuration Injection
+    ```json
+    { "role": "developer", "content": {"type": "text", "text": "<CONFIGURATION>"} }
+    { "role": "user", "content": {"type": "text", "text": "<INPUT>"} }
+    ```
 
-    #### Safety Rules
-
+    #### Safety Rules Structure
     Each rule group includes:
     - **Group:** The category of rules (e.g., Content Moderation, Data Leakage Prevention, Adversarial Attacks)
     - **Rules:** A list where each rule contains:
@@ -94,7 +87,7 @@ def render_configuration_details() -> None:
         - User violation examples
         - Assistant failure examples (marked as [Major] or [Minor])
 
-    The system outputs in a structured JSON format:
+    #### OmniGuard Output Format
     ```json
     {
         "conversation_id": "string",
@@ -107,7 +100,7 @@ def render_configuration_details() -> None:
     }
     ```
 
-    Conversations must follow this structure:
+    #### Input Structure
     ```json
     <input>
         {
@@ -121,6 +114,10 @@ def render_configuration_details() -> None:
     </input>
     ```
     """)
+    
+
+
+    st.markdown("> **Note:** The rules presented above are configured as test rules for this application. They are designed to be modified and updated based on your specific needs. You can customize the rule sets, add new rules, or modify existing ones to align with your organization's security requirements and use cases.")
 
 def render_goals() -> None:
     st.markdown("---")
@@ -142,9 +139,9 @@ def render_goals() -> None:
        - Developing unified safety protocols across different modalities
 
     3. **Model Distillation**
-       - Leveraging the collected dataset to create smaller, more efficient safety models
-       - Reducing computational overhead while maintaining robust safety standards
-       - Making AI safety more accessible and deployable across different scales of applications
+       - Leveraging the collected dataset to create smaller, more efficient safety models.
+       - Reducing computational overhead while maintaining robust safety standards.
+       - Making AI safety more accessible and deployable across different scales of applications.
 
     Through these initiatives, OmniGuard aims to foster innovation in AI safety while ensuring that safety mechanisms remain accessible and effective for the entire AI community.
     """)
@@ -196,8 +193,7 @@ def main() -> None:
     # Content for all tabs
     with overview_tab:
         render_overview()
-        render_system_flow()
-        render_configuration_details()
+        render_system_and_configuration()
         render_goals()
       
     with dataset_tab:
