@@ -1,9 +1,5 @@
 import streamlit as st
-from dotenv import load_dotenv
-load_dotenv()
-from prompts import assistant_system_prompt, omniguard_configuration
 from components.init_session_state import init_session_state
-import json
 
 def init_config_state():
     """Initialize configuration state in session."""
