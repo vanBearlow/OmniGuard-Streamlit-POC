@@ -1,4 +1,4 @@
 .env
-.streamlit
+.streamlit/secrets.toml
 temp
 __pycache__
