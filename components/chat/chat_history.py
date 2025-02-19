@@ -1,5 +1,34 @@
 import streamlit as st
 
+def handle_feedback():
+    """Handle feedback submission and show form if negative feedback (thumbs down = 0)."""
+    value = st.session_state[f"feedback_{st.session_state.get('conversation_id')}_{st.session_state.get('turn_number')}"]
+    if value == 0:  # thumbs down
+        st.session_state.show_report_violation_form = True
+
+def display_report_form():
+    """Display the human verification report form."""
+    with st.form("report_violation_form"):
+        st.write("Submit for Human Review")
+        
+        violation_source = st.multiselect(
+            "This classification is incorrect because:",
+            ["User", "Assistant"]
+        )
+        
+        suggested_compliant_classification = st.selectbox(
+            "Content should be classified as Compliant =",
+            ["True", "False"]
+        )
+        
+        comment = st.text_area("Additional Comments For Reviewers")
+        
+        submitted = st.form_submit_button("Submit")
+        if submitted:
+            # TODO: Add logic to handle report submission. Should be added to Human Review Section of Metadata
+            st.success("Report submitted successfully!")
+            st.session_state.show_report_violation_form = False
+
 def display_messages(messages):
     """Display chat messages from history."""
     for msg in messages:
@@ -22,8 +51,16 @@ def display_debug_expanders(
             if omniguard_output_message:
                 with st.popover("From: OmniGuard"):
                     st.json(omniguard_output_message, expanded=True)
-                    #TODO: add on_change function that opens a dialog to allow the user to submit a report for human verification. should only be shown if its thumbs down.
-                    st.feedback(options="thumbs", on_change=None, args=None, kwargs=None)
+                    st.feedback(
+                        options="thumbs",
+                        on_change=handle_feedback,
+                        args=None,
+                        kwargs=None,
+                        key=f"feedback_{conversation_id}_{turn_number}"
+                    )
+                    
+                    if st.session_state.get("show_report_violation_form", False):
+                        display_report_form()
             
     if assistant_messages:
         with st.expander(f"Assistant"):
