@@ -42,7 +42,7 @@ def omniguard_check(pending_assistant_response=None):
         {
           "id": "gen-1739999831-XuET2XAeBv6Z5bK5xKkM",
           "choices": [
-            "Choice(finish_reason='stop', index=0, logprobs=None, message=ChatCompletionMessage(content='{\\n  \"conversation_id\": \"be632036-142b-440f-b99a-d9d88882bad6-2\",\\n  \"analysisSummary\": \"The conversation is compliant. The system message sets a positive tone and the user’s greeting \\'hi\\' does not include any disallowed content or trigger any policy violations.\\n  \"compliant\": true\\n}', refusal=None, role='assistant', audio=None, function_call=None, tool_calls=None), native_finish_reason='stop')"
+            "Choice(finish_reason='stop', index=0, logprobs=None, message=ChatCompletionMessage(content='{\\n  \"conversation_id\": \"be632036-142b-440f-b99a-d9d88882bad6-2\",\\n  \"analysisSummary\": \"The conversation is compliant. The system message sets a positive tone and the user's greeting \\'hi\\' does not include any disallowed content or trigger any policy violations.\\n  \"compliant\": true\\n}', refusal=None, role='assistant', audio=None, function_call=None, tool_calls=None), native_finish_reason='stop')"
           ],
           "created": 1739999831,
           "model": "openai/o3-mini",
@@ -281,13 +281,7 @@ def process_omniguard_result(omniguard_result, user_prompt, context):
 
     except json.JSONDecodeError as e:
         logger.error(f"JSON parsing error in process_omniguard_result: {e}")
-        if st.secrets.get("development_mode", False):
-            st.error(f"Dev Mode Error: {e}")
-        else:
-            st.error("Something unexpected happened. Please try again later.")
+        st.error("Something unexpected happened. Please try again later.")
     except Exception as e:
         logger.exception("Unexpected error in process_omniguard_result")
-        if st.secrets.get("development_mode", False):
-            st.error(f"Dev Mode Error: {e}")
-        else:
-            st.error("Something unexpected happened. Please try again later.")
+        st.error("Something unexpected happened. Please try again later.")

@@ -2,7 +2,7 @@ import json
 import streamlit as st
 from typing import Dict, Any
 from components.init_session_state import init_session_state
-from components.chat.session_management import get_supabase_client, execute_query
+from components.chat.session_management import get_supabase_client
 
 
 

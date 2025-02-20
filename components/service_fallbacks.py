@@ -21,20 +21,13 @@ def check_api_key() -> Optional[str]:
         Optional[str]: The API key if available; otherwise, None.
     """
     try:
-        # Determine if we're in development mode
-        dev_mode = bool(st.secrets.get("development_mode", False))
-        api_key  = st.secrets.get("OPENROUTER_API_KEY")
+        api_key = st.secrets.get("OPENROUTER_API_KEY")
         
         if not api_key:
-            # Construct error message based on the mode
-            msg = (
-                "OpenRouter API key not configured in development mode. "
-                "Please add it to your secrets.toml file."
-                if dev_mode else
+            st.error(
                 "OpenRouter API key not configured. The application may have limited functionality. "
                 "Please try again later or contact support."
             )
-            st.error(msg)
             return None
         
         return api_key
