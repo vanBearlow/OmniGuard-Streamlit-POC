@@ -53,7 +53,7 @@ def display_report_form() -> None:
             }
             
             upsert_conversation_turn()
-            st.success("Report submitted successfully!")
+            st.toast("Report submitted successfully!")
             st.session_state.show_report_violation_form = False
 #endregion
 

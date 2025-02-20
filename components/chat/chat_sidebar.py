@@ -70,7 +70,7 @@ def handle_contributor_form(session_state: Dict[str, Any]) -> None:
         
         if st.form_submit_button("Save"):
             session_state["contributor"] = vars(info)
-            st.success("Saved Successfully")
+            st.toast("Saved Successfully")
             st.rerun()
 
 def render_contributor_section(session_state: Dict[str, Any]) -> None:

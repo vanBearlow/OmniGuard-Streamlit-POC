@@ -82,7 +82,7 @@ def display_conversation(conversation: Dict[str, Any]) -> None:
 
             verification_status = conversation.get("verification_status", "pending")
             if verification_status == "human":
-                st.success("This conversation has been verified by human review!")
+                st.toast("This conversation has been verified by human review!")
                 compliant_status = "Compliant" if conversation.get("compliant") else "Non-Compliant"
                 st.info(f"Final Classification: {compliant_status}")
             elif verification_status == "omniguard":
@@ -163,7 +163,7 @@ def display_conversation(conversation: Dict[str, Any]) -> None:
                 supabase = get_supabase_client()
                 supabase.table("interactions").upsert(row_data).execute()
 
-                st.success("Review submitted successfully!")
+                st.toast("Review submitted successfully!")
                 st.write(f"Current vote count: {updated_meta['votes']['count']}/100")
                 if is_fully_verified:
                     st.info("This conversation has been verified with 100 votes!")

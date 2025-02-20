@@ -66,7 +66,7 @@ def save_api_key(email: str, key_type: str, api_key: str) -> None:
         config['api_keys'] = {}
     config['api_keys'][key_type] = api_key
     save_user_config(email, config)
-    st.success(f"{key_type} API key saved successfully")
+    st.toast(f"{key_type} API key saved successfully")
 
 def get_stored_api_key(email: str, key_type: str) -> Optional[str]:
     """
@@ -207,7 +207,7 @@ with st.form("configuration_form"):
 
     if reset:
         if reset_to_defaults():
-            st.success("Configuration reset to defaults successfully!")
+            st.toast("Configuration reset to defaults successfully!")
             st.rerun()  # Rerun to update displayed values
     
     if submitted:
@@ -220,7 +220,7 @@ with st.form("configuration_form"):
             st.session_state.omniguard_configuration == updated_omniguard_config and
             st.session_state.assistant_system_prompt == updated_assistant_prompt
         ):
-            st.success("Configuration saved successfully!")
+            st.toast("Configuration saved successfully!")
         else:
             st.error("Failed to save configuration. Please try again.")
 # endregion
