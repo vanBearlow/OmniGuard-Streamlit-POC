@@ -1,13 +1,13 @@
 """
 Module: service_fallbacks.py
 Description:
-    Provides utility functions for handling API key retrieval and safely executing API operations.
+    Provides utility functions for handling API key retrieval.
     Includes graceful error handling with user feedback via Streamlit.
 """
 
 import streamlit as st
 import logging
-from typing import Optional, Any, Callable
+from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -43,34 +43,6 @@ def check_api_key() -> Optional[str]:
         logger.exception("Error checking API key")
         st.error(
             "Unable to verify API key configuration. Some features may be unavailable. "
-            "Please try again later."
-        )
-        return None
-
-
-#*** SAFE API OPERATION WRAPPER REGION ***
-def safe_api_operation(operation: Callable, error_message: Optional[str] = None) -> Any:
-    """
-    Execute an API operation safely using the available API key.
-
-    Args:
-        operation (Callable): A callable that receives the API key and performs the operation.
-        error_message (Optional[str]): Custom error message to display upon failure.
-
-    Returns:
-        Any: Result of the operation if successful; otherwise, None.
-    """
-    try:
-        api_key = check_api_key()
-        if not api_key:
-            return None
-        return operation(api_key)
-    
-    except Exception as err:
-        logger.exception("API operation failed")
-        st.error(
-            error_message or
-            "Unable to complete the requested operation. The service may be temporarily unavailable. "
             "Please try again later."
         )
         return None

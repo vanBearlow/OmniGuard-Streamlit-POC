@@ -1,5 +1,4 @@
 import streamlit as st
-from st_supabase_connection import execute_query
 from components.chat.session_management import get_supabase_client
 from typing import List, Dict, Any
 

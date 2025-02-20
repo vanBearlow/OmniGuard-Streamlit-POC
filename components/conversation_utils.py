@@ -1,7 +1,6 @@
 """
 This module provides utility functions for handling conversation data.
-It includes functions to build conversation JSON structures, extract messages from CDATA wrapped input,
-and format conversation context into an XML-like structure.
+It includes functions to build conversation JSON structures and format conversation context into an XML-like structure.
 """
 
 # Standard Libraries
@@ -33,42 +32,6 @@ def build_conversation_json(messages: List[Dict[str, str]]) -> Dict[str, Any]:
         "id":       st.session_state.conversation_id,
         "messages": full_messages,
     }
-
-
-#*** CDATA MESSAGE EXTRACTION ***
-
-def extract_messages_from_input(input_text: str) -> Optional[List[Dict[str, str]]]:
-    """
-    Extracts the messages array from the conversation input text wrapped in CDATA.
-    
-    Args:
-        input_text (str): String containing the conversation input, potentially wrapped in CDATA.
-        
-    Returns:
-        Optional[List[Dict[str, str]]]: List of message dictionaries if extraction succeeds, otherwise None.
-    """
-    start_tag: str = "<![CDATA["
-    end_tag:   str = "]]>"
-    
-    # Locate the start of the CDATA block.
-    start_idx = input_text.find(start_tag)
-    if start_idx == -1:
-        return None
-    start_idx += len(start_tag)  # Move index past the start tag.
-    
-    # Locate the end of the CDATA block.
-    end_idx = input_text.find(end_tag, start_idx)
-    if end_idx == -1:
-        return None
-    
-    try:
-        json_str          = input_text[start_idx:end_idx].strip()
-        conversation_data = json.loads(json_str)
-        return conversation_data.get("messages", [])
-    except (json.JSONDecodeError, AttributeError, KeyError) as error:
-        print(f"Error extracting messages from input: {error}")
-        return None
-
 
 #*** CONVERSATION CONTEXT FORMATTING ***
 

@@ -10,7 +10,7 @@ from dataclasses import dataclass, asdict
 from functools import wraps
 
 import streamlit as st
-from st_supabase_connection import SupabaseConnection, execute_query
+from st_supabase_connection import SupabaseConnection
 from prompts import omniguard_configuration, assistant_system_prompt
 
 # Type aliases for better readability
