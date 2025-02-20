@@ -1,5 +1,12 @@
 import streamlit as st
 from components.init_session_state import init_session_state
+from prompts import assistant_system_prompt, omniguard_configuration
+
+def reset_to_defaults():
+    """Reset configuration values to defaults from prompts.py"""
+    st.session_state.omniguard_configuration = omniguard_configuration
+    st.session_state.assistant_system_prompt = assistant_system_prompt
+    return True
 
 def init_config_state():
     """Initialize configuration state in session."""
@@ -123,12 +130,26 @@ with st.form("configuration_form"):
             key="assistant_prompt_text"
         )
 
-    # Move submit button here
-    col1, col2 = st.columns([1, 4])
+    # Buttons
+    col1, col2, col3 = st.columns([1, 1, 3])
     with col1:
-        submitted = st.form_submit_button("Save Changes", use_container_width=True)
+        submitted = st.form_submit_button("Save Changes")
+    with col2:
+        reset = st.form_submit_button("Reset")
 
+    if reset:
+        if reset_to_defaults():
+            st.success("Configuration reset to defaults successfully!")
+            st.rerun()  # Rerun to show updated values
+    
     if submitted:
+        # Update session state with new values
         st.session_state.omniguard_configuration = updated_omniguard_config
         st.session_state.assistant_system_prompt = updated_assistant_prompt
-        st.success("Configuration saved successfully!")
+        
+        # Verify the updates
+        if (st.session_state.omniguard_configuration == updated_omniguard_config and 
+            st.session_state.assistant_system_prompt == updated_assistant_prompt):
+            st.success("Configuration saved successfully!")
+        else:
+            st.error("Failed to save configuration. Please try again.")

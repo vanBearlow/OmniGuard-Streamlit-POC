@@ -11,6 +11,15 @@ logger = logging.getLogger(__name__)
 
 sitename = "OmniGuard"
 
+def verify_configuration():
+    """
+    Verify that the configuration values are properly set in session state.
+    """
+    if not st.session_state.get("omniguard_configuration"):
+        logger.error("OmniGuard configuration is missing or empty")
+        return False
+    return True
+
 def omniguard_check(pending_assistant_response=None):
     """
     Perform an OmniGuard evaluation check on the current conversation context.
@@ -73,8 +82,14 @@ def omniguard_check(pending_assistant_response=None):
         # Record preparation time
         timings['prep'] = time.time() - timings['start']
         
+        # Verify configuration before proceeding
+        if not verify_configuration():
+            raise Exception("Invalid OmniGuard configuration state")
+
         # Format omniguard_evaluation_input with configuration
-        omniguard_config = st.session_state.omniguard_configuration
+        omniguard_config = st.session_state.get("omniguard_configuration")
+        if not omniguard_config:
+            raise Exception("OmniGuard configuration is missing")
         omniguard_evaluation_input = [
             {"role": "developer", "content": omniguard_config},
             {"role": "user", "content": conversation_context}
@@ -119,13 +134,8 @@ def omniguard_check(pending_assistant_response=None):
 
         # The entire raw response object
         st.session_state.omniguard_raw_api_response = response
-        with st.expander("OmniGuard Response"): #debug
-            st.json(response)
-
-        logger.debug("OmniGuard raw response text: %s", response.choices[0].message.content)
-
         # Use raw response text directly without JSON parsing
-        raw_content = response.choices[0].message.content or ""
+        raw_content = response.choices[0].message.content
         omniguard_raw_response = raw_content
 
         # Store OmniGuard response in session state (just the text portion)
@@ -199,6 +209,7 @@ def process_omniguard_result(omniguard_result, user_prompt, context):
     Returns:
         None (Updates streamlit session with final assistant or refusal messages)
     """
+    from components.chat.session_management import upsert_conversation_turn  # === CHANGES ===
     try:
         omniguard_raw_response = omniguard_result  # treat as raw string
         try:
@@ -224,6 +235,10 @@ def process_omniguard_result(omniguard_result, user_prompt, context):
                 
                 st.markdown(response_text)
                 st.session_state.messages.append({"role": "assistant", "content": response_text})
+
+                # === CHANGES ===
+                # Even if user is refused, we can upsert to store the turn
+                upsert_conversation_turn()
                 return
 
             # If user is allowed, we generate the assistant response next
@@ -232,7 +247,8 @@ def process_omniguard_result(omniguard_result, user_prompt, context):
                 assistant_response = fetch_assistant_response(user_prompt)
 
             # Second OmniGuard check - assistant response
-            assistant_check = omniguard_check(pending_assistant_response=assistant_response)
+            with st.spinner("Verifying response...", show_time=True):
+                assistant_check = omniguard_check(pending_assistant_response=assistant_response)
             try:
                 assistant_check_parsed = json.loads(assistant_check)
                 assistant_compliant = assistant_check_parsed.get("compliant", False)
@@ -258,10 +274,10 @@ def process_omniguard_result(omniguard_result, user_prompt, context):
 
             st.markdown(response_text)
             st.session_state.messages.append({"role": "assistant", "content": response_text})
-            
-            # Save conversation turn to Supabase
-            from components.db_utils import save_conversation_turn
-            save_conversation_turn()
+
+        # === CHANGES ===
+        # Now that user + assistant are final, store (or update) this turn
+        upsert_conversation_turn()
 
     except json.JSONDecodeError as e:
         logger.error(f"JSON parsing error in process_omniguard_result: {e}")

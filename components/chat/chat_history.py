@@ -8,6 +8,7 @@ def handle_feedback():
 
 def display_report_form():
     """Display the human verification report form."""
+    from components.chat.session_management import upsert_conversation_turn  # === CHANGES ===
     with st.form("report_violation_form"):
         st.write("Submit for Human Review")
         
@@ -31,7 +32,14 @@ def display_report_form():
 
         submitted = st.form_submit_button("Submit")
         if submitted:
-            # TODO: Add logic to handle report submission. Should be added to Human Review Section of Metadata
+            # === CHANGES START ===
+            # Mark the conversation turn's metadata as submitted for review
+            st.session_state["submitted_for_review"] = True
+            
+            # Upsert to update metadata
+            upsert_conversation_turn()
+            # === CHANGES END ===
+
             st.success("Report submitted successfully!")
             st.session_state.show_report_violation_form = False
 
@@ -72,4 +80,3 @@ def display_debug_expanders(
         with st.expander(f"Assistant"):
             with st.popover("To: Assistant"):
                 st.write(assistant_messages)
-        

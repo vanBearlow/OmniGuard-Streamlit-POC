@@ -5,6 +5,3 @@ secondaryBackgroundColor="#111111"
 textColor="#ffffff"
 font="sans serif"
 
-
-[client]
-toolbarMode = "developer"

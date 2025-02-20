@@ -9,6 +9,15 @@ from components.cost_utils import calculate_costs
 logger = logging.getLogger(__name__)
 sitename = "OmniGuard"
 
+def verify_configuration():
+    """
+    Verify that the configuration values are properly set in session state.
+    """
+    if not st.session_state.get("assistant_system_prompt"):
+        logger.error("Assistant system prompt is missing or empty")
+        return False
+    return True
+
 def fetch_assistant_response(prompt_text):
     """
     When OmniGuard returns compliant=False, this queries the Assistant.
@@ -30,7 +39,13 @@ def fetch_assistant_response(prompt_text):
         # Create new OpenRouter client
         client = get_openai_client()
 
-        main_prompt = st.session_state.assistant_system_prompt
+        # Verify configuration before proceeding
+        if not verify_configuration():
+            raise Exception("Invalid Assistant configuration state")
+
+        main_prompt = st.session_state.get("assistant_system_prompt")
+        if not main_prompt:
+            raise Exception("Assistant system prompt is missing")
         
         # Use appropriate role based on model type
         role = "system" if st.session_state.selected_assistant_model.startswith(("o1", "o3")) else "developer"
