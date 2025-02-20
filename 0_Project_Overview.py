@@ -1,6 +1,7 @@
 import streamlit as st
 from typing import Dict, Any
 from components.init_session_state import init_session_state
+from components.chat.session_management import get_supabase_client, execute_query
 
 def render_overview() -> None:
     st.markdown("""
@@ -147,20 +148,138 @@ def render_goals() -> None:
     """)
 
 def render_dataset_content() -> None:
+    """Render the dataset content including statistics and download options."""
+    supabase = get_supabase_client()
 
-    st.info("Dataset statistics temporarily unavailable")
+    # Fetch dataset statistics
+    try:
+        result = supabase.table("interactions").select("*").execute()
+        data = result.data if result else []
+        
+        # Calculate statistics from the data
+        stats_data = {
+            'total_interactions': len(data),
+            'human_verified': sum(1 for item in data if item.get('verification_status') == 'human'),
+            'omniguard_verified': sum(1 for item in data if item.get('verification_status') == 'omniguard'),
+            'pending_verification': sum(1 for item in data if item.get('verification_status') == 'pending'),
+            'compliant_interactions': sum(1 for item in data if item.get('compliant') == True),
+            'non_compliant_interactions': sum(1 for item in data if item.get('compliant') == False)
+        }
+
+        if stats_data:
+            st.markdown("## Dataset Statistics")
+            
+            # Create a table of statistics
+            stats_table = {
+                'Metric': [
+                    'Total Interactions',
+                    'Compliant Interactions',
+                    'Human Verified',
+                    'OmniGuard Verified',
+                    'Pending Verification',
+                    'Non-Compliant Interactions'
+                ],
+                'Count': [
+                    stats_data['total_interactions'],
+                    stats_data['compliant_interactions'],
+                    stats_data['human_verified'],
+                    stats_data['omniguard_verified'],
+                    stats_data['pending_verification'],
+                    stats_data['non_compliant_interactions']
+                ]
+            }
+            st.table(stats_table)
+        else:
+            st.info("No dataset statistics available yet.")
+    except Exception as e:
+        st.error(f"Error fetching dataset statistics: {str(e)}")
+
+    st.markdown("---")
     
+    # Dataset Format Example
     with st.expander("Dataset Format Example"):
         st.markdown("""
         The dataset is provided in JSONL format, with each line representing a single evaluation instance:
 
         ```json
-        {TODO: Add example}
+        {
+            "id": "conversation-uuid-turn-1",
+            "conversation": {
+                "messages": [
+                    {"role": "system", "content": "<CONFIGURATION>"},
+                    {"role": "user", "content": "<INPUT>"},
+                    {"role": "assistant", "content": "<OUTPUT>"}
+                ]
+            },
+            "metadata": {
+                "raw_response": {
+                    "id": "response-id",
+                    "created": timestamp,
+                    "model": "model-name",
+                    "choices": [...],
+                    "usage": {...}
+                },
+                "review_data": {
+                    "violation_source": ["User" and/or "Assistant"],
+                    "suggested_compliant_classification": boolean,
+                    "reporter_comment": "string"
+                },
+                "votes": {
+                    "count": integer,
+                    "user_violations": integer,
+                    "assistant_violations": integer,
+                    "safe_votes": integer
+                }
+            },
+            "contributor": {
+                "name": "string",
+                "x": "string",
+                "discord": "string",
+                "linkedin": "string"
+            },
+            "verification_status": "omniguard" | "pending" | "human",
+            "compliant": boolean,
+            "created_at": timestamp,
+            "updated_at": timestamp
+        }
         ```
         """)
     
-    # TODO: Implement dataset export from Supabase or other data store
-    st.info("Dataset export is not implemented. Replace with your Supabase download logic.")
+    st.markdown("---")
+    
+    # Download Section
+    try:
+        # Create base query
+        query = supabase.table("interactions").select(
+            "id",
+            "conversation",
+            "metadata",
+            "contributor",
+            "verification_status",
+            "compliant",
+            "created_at",
+            "updated_at"
+        )
+        
+        # Execute query with ordering
+        result = query.order("created_at", desc=True).execute()
+        
+        if result.data:
+            # Convert to JSONL format
+            import json
+            data = "\n".join(json.dumps(row) for row in result.data)
+            
+            # Create download button
+            st.download_button(
+                label="Download Dataset",
+                data=data,
+                file_name="omniguard_dataset.jsonl",
+                mime="application/jsonl"
+            )
+        else:
+            st.info("No data available in the dataset.")
+    except Exception as e:
+        st.error(f"Error fetching dataset: {str(e)}")
 
 def render_disclaimer() -> None:
     #Todo: Update this when all data is confirmed.

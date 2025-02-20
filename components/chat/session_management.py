@@ -85,7 +85,7 @@ def get_supabase_client():
 
 def upsert_conversation_turn():
     """
-    Insert or update the current turn into Supabase table 'conversation_turns'.
+    Insert or update the current turn into Supabase table 'interactions'.
     This function is invoked after we've finalized the user + assistant messages for this turn.
     """
     supabase = get_supabase_client()
@@ -93,8 +93,12 @@ def upsert_conversation_turn():
     # Unique row ID is conversation_id
     row_id = st.session_state.conversation_id
 
-    messages = st.session_state.omniguard_input_message
-    messages.append({"role": "assistant", "content": st.session_state.omniguard_output_message})
+    # Copy messages to avoid modifying the original
+    messages = st.session_state.omniguard_input_message.copy()
+    
+    # Only append assistant message if it hasn't been appended yet
+    if not any(msg.get("role") == "assistant" for msg in messages):
+        messages.append({"role": "assistant", "content": st.session_state.omniguard_output_message})
     
     # Build 'conversation' JSON for this turn
     conversation_json = {
@@ -124,11 +128,16 @@ def upsert_conversation_turn():
             } if raw_response.usage else None
         }
 
-    # Build 'metadata' JSON
+    # Build 'metadata' JSON - removing verified and submittedForReview
     metadata_json = {
-        "submittedForReview": st.session_state.get("submitted_for_review", False),
-        "verified": st.session_state.get("verified", False),
-        "raw_response": serializable_response
+        "raw_response": serializable_response,
+        "review_data": st.session_state.get("review_data", None),  # Include review data if it exists
+        "votes": {
+            "count": 0,  # Will be incremented in the Human Verification page
+            "user_violations": 0,
+            "assistant_violations": 0,
+            "safe_votes": 0
+        }
     }
 
     # Get contributor info from session state and format as JSONB
@@ -139,14 +148,21 @@ def upsert_conversation_turn():
         if value := contributor_data.get(field):  # Using walrus operator to get and check value
             contributor_json[field] = value
 
+    # Determine verification status
+    # If submitted for verification, it's pending human verification
+    # Otherwise, it's verified by OmniGuard
+    verification_status = "pending" if st.session_state.get("submitted_for_verification", False) else "omniguard"
+
     # Prepare row data for Supabase
     row_data = {
         "id": row_id,
         "conversation": conversation_json,
         "metadata": metadata_json,
         "contributor": contributor_json if contributor_json else None,  # Only include if we have any contributor data
+        "verification_status": verification_status,  # New enum column: 'omniguard', 'pending', or 'human'
+        "submitted_for_verification": st.session_state.get("submitted_for_verification", False),  # Renamed column
         # up to you to handle created_at/updated_at in DB, e.g., with triggers or default values
     }
 
     # Use upsert so that if we call multiple times for the same ID, we update instead of insert
-    supabase.table("conversation_turns").upsert(row_data).execute()
+    supabase.table("interactions").upsert(row_data).execute()

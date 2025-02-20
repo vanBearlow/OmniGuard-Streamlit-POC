@@ -10,7 +10,7 @@ def display_report_form():
     """Display the human verification report form."""
     from components.chat.session_management import upsert_conversation_turn  # === CHANGES ===
     with st.form("report_violation_form"):
-        st.write("Submit for Human Review")
+        st.write("Submit for Human Verification")
         
         violation_source = st.multiselect(
             "This classification is incorrect because:",
@@ -22,13 +22,17 @@ def display_report_form():
             ["True", "False"]
         )
         
-        comment = st.text_area("Additional Comments For Reviewers")
+        reporter_comment = st.text_area("Reporter's Comments")
 
         submitted = st.form_submit_button("Submit")
         if submitted:
-            # === CHANGES START ===
-            # Mark the conversation turn's metadata as submitted for review
-            st.session_state["submitted_for_review"] = True
+            # Store all review data in session state
+            st.session_state["submitted_for_verification"] = True
+            st.session_state["review_data"] = {
+                "violation_source": violation_source,
+                "suggested_compliant_classification": suggested_compliant_classification == "True",
+                "reporter_comment": reporter_comment  # Renamed to clarify this is from the reporter
+            }
             
             # Upsert to update metadata
             upsert_conversation_turn()
