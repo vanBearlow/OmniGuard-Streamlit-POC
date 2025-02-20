@@ -64,12 +64,12 @@ with st.form("configuration_form"):
     with st.expander("OmniGuard", expanded=False):
         st.subheader("Model Settings")
         st.write("`OmniGuard model is fixed to o3-mini-2025-01-31.`")
-        selected_omniguard_model = "o3-mini-2025-01-31" #st.selectbox(
-        #    "Select OmniGuard model",
-        #    ["o1-2024-12-17", "o3-mini-2025-01-31"],
-        #    index=1,
-        #    key="omniguard_model_select"
-        #)
+        selected_omniguard_model = st.selectbox(
+            "Select OmniGuard model `temporarily added o1`",
+            ["o1-2024-12-17", "o3-mini-2025-01-31"],
+            index=1,
+            key="omniguard_model_select"
+        )
         st.session_state.selected_omniguard_model = selected_omniguard_model
 
         selected_reasoning = st.selectbox(
