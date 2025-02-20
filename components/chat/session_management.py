@@ -131,11 +131,20 @@ def upsert_conversation_turn():
         "raw_response": serializable_response
     }
 
+    # Get contributor info from session state and format as JSONB
+    contributor_data = st.session_state.get("contributor", {})
+    contributor_json = {}
+    # Only add fields that exist and have non-empty values
+    for field in ["name", "x", "discord", "linkedin"]:
+        if value := contributor_data.get(field):  # Using walrus operator to get and check value
+            contributor_json[field] = value
+
     # Prepare row data for Supabase
     row_data = {
         "id": row_id,
         "conversation": conversation_json,
         "metadata": metadata_json,
+        "contributor": contributor_json if contributor_json else None,  # Only include if we have any contributor data
         # up to you to handle created_at/updated_at in DB, e.g., with triggers or default values
     }
 

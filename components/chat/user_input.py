@@ -41,7 +41,7 @@ def handle_omniguard_check(user_input: str, session_state: Dict[str, Any]) -> No
         session_state: Streamlit session state containing conversation data
     """
     try:
-        with st.spinner("OmniGuard...", show_time=True):
+        with st.spinner("OmniGuard (User)...", show_time=True):
             omniguard_response = omniguard_check()
     except Exception as ex:
         st.error(f"Error calling OmniGuard: {ex}")

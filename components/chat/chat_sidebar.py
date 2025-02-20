@@ -46,6 +46,33 @@ def setup_sidebar(session_state: Dict[str, Any], reset_callback) -> None:
             """)
         st.markdown("---")
 
+        contributor = session_state.get("contributor", {})
+        has_any_info = any(value.strip() for value in contributor.values()) if contributor else False
+        expander_title = "Contributor Information (Empty)" if not has_any_info else "Contributor Information"
+        with st.expander(expander_title, expanded=False):
+            st.markdown("Add your name/socials to get credit in the dataset and appear on the Leaderboard. (Optional)")
+
+            with st.form("contributor_form"):
+              name = st.text_input("Name:")
+              x = st.text_input("X:") #X/twitter handle
+              discord = st.text_input("Discord:") #discord handle
+              linkedin = st.text_input("LinkedIn:")
+            
+              submitted = st.form_submit_button("Save")
+              if submitted:
+                contributor_info = {
+                    "name": name,
+                    "x": x,
+                    "discord": discord,
+                    "linkedin": linkedin
+                }
+                session_state["contributor"] = contributor_info
+                st.success("Saved Successfully")
+                st.rerun()
+
+        st.markdown("---")
+
+
         if st.button("Clear Conversation :broom:") and session_state.get("messages"):
             reset_callback()
             st.rerun()

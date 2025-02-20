@@ -247,7 +247,7 @@ def process_omniguard_result(omniguard_result, user_prompt, context):
                 assistant_response = fetch_assistant_response(user_prompt)
 
             # Second OmniGuard check - assistant response
-            with st.spinner("Verifying response...", show_time=True):
+            with st.spinner("OmniGuard (Assistant)...", show_time=True):
                 assistant_check = omniguard_check(pending_assistant_response=assistant_response)
             try:
                 assistant_check_parsed = json.loads(assistant_check)
