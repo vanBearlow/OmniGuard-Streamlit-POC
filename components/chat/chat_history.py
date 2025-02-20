@@ -1,80 +1,109 @@
+#region *** IMPORTS ***
 import streamlit as st
+from components.chat.session_management import upsert_conversation_turn
+#endregion
 
-def handle_feedback():
-    """Handle feedback submission and show form if negative feedback (thumbs down = 0)."""
-    value = st.session_state[f"feedback_{st.session_state.get('conversation_id')}_{st.session_state.get('turn_number')}"]
-    if value == 0:  # thumbs down
+#region *** FEEDBACK HANDLERS ***
+def handle_feedback() -> None:
+    """Handle feedback submission and toggle report form visibility.
+    
+    Triggers report form display when negative feedback (thumbs down) is received.
+    Uses session state to track feedback across conversation turns.
+    """
+    feedback_key = f"feedback_{st.session_state.get('conversation_id')}_{st.session_state.get('turn_number')}"
+    if st.session_state.get(feedback_key) == 0:  # Thumbs down
         st.session_state.show_report_violation_form = True
+#endregion
 
-def display_report_form():
-    """Display the human verification report form."""
-    from components.chat.session_management import upsert_conversation_turn  # === CHANGES ===
+#region *** REPORT FORM COMPONENTS ***
+def display_report_form() -> None:
+    """Display human verification report form with structured input fields.
+    
+    Collects:
+    - Violation sources (multi-select)
+    - Suggested classification (selectbox)
+    - Reporter comments (text area)
+    """
     with st.form("report_violation_form"):
         st.write("Submit for Human Verification")
         
+        violation_sources = ["User", "Assistant"]
+        classification_opts = ["True", "False"]
+        
+        # Form elements with vertical alignment
         violation_source = st.multiselect(
-            "This classification is incorrect because:",
-            ["User", "Assistant"]
+            "This classification is incorrect because:", 
+            violation_sources
         )
         
-        suggested_compliant_classification = st.selectbox(
-            "Content should be classified as Compliant =",
-            ["True", "False"]
+        suggested_classification = st.selectbox(
+            "Content should be classified as Compliant =", 
+            classification_opts
         )
         
         reporter_comment = st.text_area("Reporter's Comments")
 
-        submitted = st.form_submit_button("Submit")
-        if submitted:
-            # Store all review data in session state
+        if st.form_submit_button("Submit"):
+            # Store review data with aligned dictionary formatting
             st.session_state["submitted_for_verification"] = True
-            st.session_state["review_data"] = {
+            st.session_state["review_data"]           = {
                 "violation_source": violation_source,
-                "suggested_compliant_classification": suggested_compliant_classification == "True",
-                "reporter_comment": reporter_comment  # Renamed to clarify this is from the reporter
+                "suggested_compliant_classification": suggested_classification == "True",
+                "reporter_comment": reporter_comment  # Reporter-provided comments
             }
             
-            # Upsert to update metadata
             upsert_conversation_turn()
-            # === CHANGES END ===
-
             st.success("Report submitted successfully!")
             st.session_state.show_report_violation_form = False
+#endregion
 
-def display_messages(messages):
-    """Display chat messages from history."""
+#region *** MESSAGE DISPLAYS ***
+def display_messages(messages: list[dict]) -> None:
+    """Render chat messages with proper role-based formatting.
+    
+    Args:
+        messages: List of message dicts containing 'role' and 'content' keys
+    """
     for msg in messages:
         with st.chat_message(msg["role"]):
             st.markdown(msg["content"])
+#endregion
 
+#region *** DEBUG INTERFACES ***
 def display_debug_expanders(
-    omniguard_input_message,
-    omniguard_output_message,
-    assistant_messages
-):
-    """Display debug information in expanders."""
+    omniguard_input_message:  dict | None,
+    omniguard_output_message: dict | None,
+    assistant_messages:       list[str] | None
+) -> None:
+    """Display debug information in collapsible expanders with nested popovers.
+    
+    Args:
+        omniguard_input_message: Raw input to OmniGuard
+        omniguard_output_message: Processed output from OmniGuard
+        assistant_messages: List of assistant response messages
+    """
     conversation_id = st.session_state.get("conversation_id")
-    turn_number = st.session_state.get("turn_number")
+    turn_number     = st.session_state.get("turn_number")
     
     if omniguard_input_message:
         with st.expander(f"OmniGuard (```{conversation_id}```)"):
             with st.popover("To: OmniGuard"):
                 st.json(omniguard_input_message, expanded=True)
+            
             if omniguard_output_message:
                 with st.popover("From: OmniGuard"):
                     st.json(omniguard_output_message, expanded=True)
                     st.feedback(
-                        options="thumbs",
-                        on_change=handle_feedback,
-                        args=None,
-                        kwargs=None,
-                        key=f"feedback_{conversation_id}_{turn_number}"
+                        options    = "thumbs",
+                        on_change  = handle_feedback,
+                        key        = f"feedback_{conversation_id}_{turn_number}"
                     )
                     
                     if st.session_state.get("show_report_violation_form", False):
                         display_report_form()
-            
+    
     if assistant_messages:
-        with st.expander(f"Assistant"):
+        with st.expander("Assistant"):
             with st.popover("To: Assistant"):
                 st.write(assistant_messages)
+#endregion

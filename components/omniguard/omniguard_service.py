@@ -103,7 +103,7 @@ def omniguard_check(pending_assistant_response=None):
         try:
             response = client.chat.completions.create(
                 extra_headers={
-                    "HTTP-Referer": st.session_state.get("site_url", "https://example.com"),
+                    "HTTP-Referer": st.session_state.get("site_url", "https://omniguard.streamlit.app"),
                     "X-Title": st.session_state.get("site_name", sitename),
                 },
                 model=st.session_state.get("selected_omniguard_model", "o3-mini-2025-01-31"),

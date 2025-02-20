@@ -4,63 +4,83 @@ It includes functions to build conversation JSON structures, extract messages fr
 and format conversation context into an XML-like structure.
 """
 
-import streamlit as st
+# Standard Libraries
 import json
 from typing import List, Dict, Any, Optional
 
+# Third Party Libraries
+import streamlit as st
+
+#*** CONVERSATION JSON BUILDING FUNCTIONS ***
 
 def build_conversation_json(messages: List[Dict[str, str]]) -> Dict[str, Any]:
     """
     Constructs and returns a dictionary representing the conversation structure.
     
     Args:
-        messages: List of message dictionaries, each containing 'role' and 'content' keys
+        messages (List[Dict[str, str]]): List of message dictionaries, each containing 'role' and 'content' keys.
         
     Returns:
-        Dictionary containing conversation ID and full message history including system prompt
+        Dict[str, Any]: Dictionary containing the conversation ID and full message history,
+                        with the system prompt as the first message.
     """
-    # Create messages array with system prompt as first message
-    full_messages = [{"role": "system", "content": st.session_state.assistant_system_prompt}]
+    # Build full conversation by prepending the system prompt.
+    system_prompt = st.session_state.assistant_system_prompt
+    full_messages  = [{"role": "system", "content": system_prompt}]
     full_messages.extend(messages)
     
     return {
-        "id": st.session_state.conversation_id,
-        "messages": full_messages
+        "id":       st.session_state.conversation_id,
+        "messages": full_messages,
     }
 
 
+#*** CDATA MESSAGE EXTRACTION ***
+
 def extract_messages_from_input(input_text: str) -> Optional[List[Dict[str, str]]]:
     """
-    Extracts the messages array from conversation input text that is wrapped in CDATA.
+    Extracts the messages array from the conversation input text wrapped in CDATA.
     
     Args:
-        input_text: String containing the conversation input, potentially wrapped in CDATA
+        input_text (str): String containing the conversation input, potentially wrapped in CDATA.
         
     Returns:
-        List of message dictionaries if extraction succeeds, None if parsing fails
+        Optional[List[Dict[str, str]]]: List of message dictionaries if extraction succeeds, otherwise None.
     """
-    try:
-        # Find the JSON block within CDATA
-        start_idx = input_text.find("<![CDATA[")
-        if start_idx != -1:
-            start_idx += 9  # Length of "<![CDATA["
-            end_idx = input_text.find("]]>", start_idx)
-            if end_idx != -1:
-                json_str = input_text[start_idx:end_idx].strip()
-                conversation_data = json.loads(json_str)
-                return conversation_data.get("messages", [])
-    except (json.JSONDecodeError, AttributeError, KeyError) as e:
-        print(f"Error extracting messages from input: {e}")
+    start_tag: str = "<![CDATA["
+    end_tag:   str = "]]>"
+    
+    # Locate the start of the CDATA block.
+    start_idx = input_text.find(start_tag)
+    if start_idx == -1:
+        return None
+    start_idx += len(start_tag)  # Move index past the start tag.
+    
+    # Locate the end of the CDATA block.
+    end_idx = input_text.find(end_tag, start_idx)
+    if end_idx == -1:
         return None
     
-    return None
+    try:
+        json_str          = input_text[start_idx:end_idx].strip()
+        conversation_data = json.loads(json_str)
+        return conversation_data.get("messages", [])
+    except (json.JSONDecodeError, AttributeError, KeyError) as error:
+        print(f"Error extracting messages from input: {error}")
+        return None
 
+
+#*** CONVERSATION CONTEXT FORMATTING ***
 
 def format_conversation_context(conversation: Dict[str, Any]) -> str:
     """
     Formats a conversation dictionary into the XML-like structure expected by the system.
+    
+    Args:
+        conversation (Dict[str, Any]): Conversation data as a dictionary.
+        
+    Returns:
+        str: XML-like formatted string representation of the conversation.
     """
     conversation_json = json.dumps(conversation, indent=4)
-    return f"""<input>
-        {conversation_json}
-    </input>"""
+    return f"<input>\n{conversation_json}\n</input>"

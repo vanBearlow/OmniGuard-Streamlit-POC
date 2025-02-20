@@ -1,81 +1,85 @@
+# -*- coding: utf-8 -*-
+"""                                                                                      
+Streamlit session management utilities for OmniGuard chat application.
+Handles conversation state, database interactions, and session initialization.
+"""
+
 import uuid
+from typing import Callable, Dict, Any, Optional
+from dataclasses import dataclass, asdict
+from functools import wraps
+
 import streamlit as st
-from typing import Callable
+from st_supabase_connection import SupabaseConnection, execute_query
 from prompts import omniguard_configuration, assistant_system_prompt
 
-from st_supabase_connection import SupabaseConnection, execute_query
+# Type aliases for better readability
+ConversationId = str
+JsonDict = Dict[str, Any]
 
-def generate_conversation_id(turn_number: int = 1) -> str:
+@dataclass
+class SessionDefaults:
+    """Default values for session state initialization."""
+    messages: list = None
+    base_conversation_id: str = None
+    turn_number: int = 1
+    conversation_id: str = None
+    omniguard_input_message: Optional[list] = None
+    omniguard_output_message: Optional[str] = None
+    assistant_messages: Optional[list] = None
+    show_report_violation_form: bool = False
+    omniguard_configuration: dict = None
+    assistant_system_prompt: str = None
+    conversation_context: Optional[dict] = None
+
+    def __post_init__(self):
+        """Initialize computed fields after instance creation."""
+        self.messages = []
+        self.base_conversation_id = str(uuid.uuid4())
+        self.conversation_id = f"{self.base_conversation_id}-{self.turn_number}"
+        self.omniguard_configuration = omniguard_configuration
+        self.assistant_system_prompt = assistant_system_prompt
+
+def ensure_session_state(func: Callable) -> Callable:
+    """Decorator to ensure session state exists before function execution."""
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        if not hasattr(st, 'session_state'):
+            st.session_state = {}
+        return func(*args, **kwargs)
+    return wrapper
+
+@ensure_session_state
+def generate_conversation_id(turn_number: int = 1) -> ConversationId:
     """Generate a unique conversation ID combining base ID and turn number."""
     if "base_conversation_id" not in st.session_state:
         st.session_state.base_conversation_id = str(uuid.uuid4())
         st.session_state.turn_number = 1
     return f"{st.session_state.base_conversation_id}-{turn_number}"
 
+@ensure_session_state
 def reset_session_state(update_conversation_context: Callable) -> None:
-    """
-    Reset session state variables to their initial values.
-    
-    Args:
-        update_conversation_context: Function to update the conversation context
-    """
-    st.session_state.messages = []
-    st.session_state.base_conversation_id = str(uuid.uuid4())
-    st.session_state.turn_number = 1
-    st.session_state.conversation_id = generate_conversation_id(st.session_state.turn_number)
-    st.session_state.omniguard_input_message = None
-    st.session_state.omniguard_output_message = None
-    st.session_state.assistant_messages = None
+    """Reset session state to initial values and update conversation context."""
+    defaults = SessionDefaults()
+    for key, value in asdict(defaults).items():
+        setattr(st.session_state, key, value)
     update_conversation_context()
 
+@ensure_session_state
 def init_session_state(update_conversation_context: Callable) -> None:
-    """
-    Initialize all session state variables if they don't exist.
+    """Initialize session state with default values if not already set."""
+    defaults = SessionDefaults()
+    for key, value in asdict(defaults).items():
+        if key not in st.session_state:
+            setattr(st.session_state, key, value)
     
-    Args:
-        update_conversation_context: Function to update the conversation context
-    """
-    # Message Management
-    if "messages" not in st.session_state:
-        st.session_state.messages = []
-    
-    # Conversation Management
-    if "base_conversation_id" not in st.session_state:
-        st.session_state.base_conversation_id = str(uuid.uuid4())
-    if "turn_number" not in st.session_state:
-        st.session_state.turn_number = 1
-    if "conversation_id" not in st.session_state:
-        st.session_state.conversation_id = generate_conversation_id(st.session_state.turn_number)
-    
-    # Configuration
-    if "omniguard_configuration" not in st.session_state:
-        st.session_state.omniguard_configuration = omniguard_configuration
-    if "assistant_system_prompt" not in st.session_state:
-        st.session_state.assistant_system_prompt = assistant_system_prompt
-    
-    # UI State
-    if "show_report_violation_form" not in st.session_state:
-        st.session_state.show_report_violation_form = False
-    
-    # Context Management
+    # Ensure conversation context is updated
     if "conversation_context" not in st.session_state:
         update_conversation_context()
-    
-    # Message Display State
-    if "omniguard_input_message" not in st.session_state:
-        st.session_state.omniguard_input_message = None
-    if "omniguard_output_message" not in st.session_state:
-        st.session_state.omniguard_output_message = None
-    if "assistant_messages" not in st.session_state:
-        st.session_state.assistant_messages = None
 
-@st.cache_resource  # Use cache_resource for database connections
-def get_supabase_client():
-    """
-    Return the st_supabase_connection object for DB operations.
-    Use a short TTL or no caching to ensure immediate updates.
-    """
-    # Get connection using credentials from [supabase] section in .streamlit/secrets.toml
+@st.cache_resource
+def get_supabase_client() -> SupabaseConnection:
+    """Return cached Supabase client connection."""
     return st.connection(
         "supabase",
         type=SupabaseConnection,
@@ -83,86 +87,80 @@ def get_supabase_client():
         key=st.secrets.supabase.SUPABASE_KEY
     )
 
-def upsert_conversation_turn():
-    """
-    Insert or update the current turn into Supabase table 'interactions'.
-    This function is invoked after we've finalized the user + assistant messages for this turn.
-    """
-    supabase = get_supabase_client()
-
-    # Unique row ID is conversation_id
-    row_id = st.session_state.conversation_id
-
-    # Copy messages to avoid modifying the original
-    messages = st.session_state.omniguard_input_message.copy()
+def _extract_api_response(raw_response: Any) -> Optional[JsonDict]:
+    """Extract serializable parts from API response."""
+    if not raw_response:
+        return None
     
-    # Only append assistant message if it hasn't been appended yet
-    if not any(msg.get("role") == "assistant" for msg in messages):
-        messages.append({"role": "assistant", "content": st.session_state.omniguard_output_message})
-    
-    # Build 'conversation' JSON for this turn
-    conversation_json = {
-        "messages": messages}
+    return {
+        "id": raw_response.id,
+        "created": raw_response.created,
+        "model": raw_response.model,
+        "object": raw_response.object,
+        "choices": [{
+            "finish_reason": choice.finish_reason,
+            "index": choice.index,
+            "message": {
+                "content": choice.message.content,
+                "role": choice.message.role
+            }
+        } for choice in raw_response.choices],
+        "usage": {
+            "completion_tokens": raw_response.usage.completion_tokens,
+            "prompt_tokens": raw_response.usage.prompt_tokens,
+            "total_tokens": raw_response.usage.total_tokens
+        } if raw_response.usage else None
+    }
 
-    # Extract serializable parts of the raw API response
-    raw_response = st.session_state.omniguard_raw_api_response
-    serializable_response = None
-    if raw_response:
-        serializable_response = {
-            "id": raw_response.id,
-            "created": raw_response.created,
-            "model": raw_response.model,
-            "object": raw_response.object,
-            "choices": [{
-                "finish_reason": choice.finish_reason,
-                "index": choice.index,
-                "message": {
-                    "content": choice.message.content,
-                    "role": choice.message.role
-                }
-            } for choice in raw_response.choices],
-            "usage": {
-                "completion_tokens": raw_response.usage.completion_tokens,
-                "prompt_tokens": raw_response.usage.prompt_tokens,
-                "total_tokens": raw_response.usage.total_tokens
-            } if raw_response.usage else None
-        }
-
-    # Build 'metadata' JSON - removing verified and submittedForReview
-    metadata_json = {
-        "raw_response": serializable_response,
-        "review_data": st.session_state.get("review_data", None),  # Include review data if it exists
+def _build_metadata_json() -> JsonDict:
+    """Build metadata JSON for conversation turn."""
+    return {
+        "raw_response": _extract_api_response(st.session_state.get("omniguard_raw_api_response")),
+        "review_data": st.session_state.get("review_data"),
         "votes": {
-            "count": 0,  # Will be incremented in the Human Verification page
+            "count": 0,
             "user_violations": 0,
             "assistant_violations": 0,
             "safe_votes": 0
         }
     }
 
-    # Get contributor info from session state and format as JSONB
+def _build_contributor_json() -> Optional[JsonDict]:
+    """Build contributor JSON from session state."""
     contributor_data = st.session_state.get("contributor", {})
-    contributor_json = {}
-    # Only add fields that exist and have non-empty values
-    for field in ["name", "x", "discord", "linkedin"]:
-        if value := contributor_data.get(field):  # Using walrus operator to get and check value
-            contributor_json[field] = value
+    return {
+        field: value
+        for field in ["name", "x", "discord", "linkedin"]
+        if (value := contributor_data.get(field))
+    } or None
+
+def upsert_conversation_turn() -> None:
+    """Insert or update the current conversation turn in Supabase."""
+    supabase = get_supabase_client()
+    
+    # Prepare messages
+    messages = st.session_state.omniguard_input_message.copy()
+    if not any(msg.get("role") == "assistant" for msg in messages):
+        messages.append({
+            "role": "assistant",
+            "content": st.session_state.omniguard_output_message
+        })
 
     # Determine verification status
-    # If submitted for verification, it's pending human verification
-    # Otherwise, it's verified by OmniGuard
-    verification_status = "pending" if st.session_state.get("submitted_for_verification", False) else "omniguard"
+    verification_status = (
+        "pending" if st.session_state.get("submitted_for_verification") 
+        else "omniguard"
+    )
 
-    # Prepare row data for Supabase
+    # Prepare row data
     row_data = {
-        "id": row_id,
-        "conversation": conversation_json,
-        "metadata": metadata_json,
-        "contributor": contributor_json if contributor_json else None,  # Only include if we have any contributor data
-        "verification_status": verification_status,  # New enum column: 'omniguard', 'pending', or 'human'
-        "submitted_for_verification": st.session_state.get("submitted_for_verification", False),  # Renamed column
-        # up to you to handle created_at/updated_at in DB, e.g., with triggers or default values
+        "id": st.session_state.conversation_id,
+        "conversation": {"messages": messages},
+        "metadata": _build_metadata_json(),
+        "contributor": _build_contributor_json(),
+        "verification_status": verification_status,
+        "submitted_for_verification": st.session_state.get("submitted_for_verification", False)
     }
 
-    # Use upsert so that if we call multiple times for the same ID, we update instead of insert
+    # Upsert data
     supabase.table("interactions").upsert(row_data).execute()

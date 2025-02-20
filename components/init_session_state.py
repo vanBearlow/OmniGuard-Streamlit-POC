@@ -23,7 +23,7 @@ def init_session_state():
     
     # Model Parameters (only set if not already set)
     if "selected_reasoning" not in st.session_state:
-        st.session_state.selected_reasoning = "medium"
+        st.session_state.selected_reasoning = "low"
     if "temperature" not in st.session_state:
         st.session_state.temperature = 1.0
     
@@ -34,8 +34,7 @@ def init_session_state():
         st.session_state.conversation_id = ""
     
     # Site Configuration
-    #TODO: add site_url and site_name to the session state
     if "site_url" not in st.session_state:
-        st.session_state.site_url = ""
+        st.session_state.site_url = "https://omniguard.streamlit.app"
     if "site_name" not in st.session_state:
         st.session_state.site_name = "OmniGuard"

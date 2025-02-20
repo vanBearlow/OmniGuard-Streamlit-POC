@@ -9,128 +9,94 @@ from components.cost_utils import calculate_costs
 logger = logging.getLogger(__name__)
 sitename = "OmniGuard"
 
-def verify_configuration():
+def verify_configuration() -> bool:
     """
-    Verify that the configuration values are properly set in session state.
+    Verify that essential configuration values (like the assistant system prompt) are set
+    in session state.
+
+    Returns:
+        bool: True if 'assistant_system_prompt' is present, False otherwise.
     """
     if not st.session_state.get("assistant_system_prompt"):
         logger.error("Assistant system prompt is missing or empty")
         return False
     return True
 
-def fetch_assistant_response(prompt_text):
+def fetch_assistant_response(prompt_text: str) -> str:
     """
-    When OmniGuard returns compliant=False, this queries the Assistant.
-    
-    This function fetches the assistant's response using a separate model
-    (specified in session state). In this refactored version, we store the
-    entire raw response object in session state instead of extracting fields
-    that may not exist (e.g., usage tokens).
+    Fetch the assistant's response using the designated model. The entire raw API response
+    is stored in session state (for future reference like calculating costs).
+
+    Note:
+        The 'prompt_text' parameter is not used because the system prompt is fetched from
+        session state; it is retained for interface consistency.
+
+    Parameters:
+        prompt_text (str): The prompt text for querying the assistant.
+
+    Returns:
+        str: The assistant's response extracted from the API, or an error message in case of issues.
     """
     try:
-        # Track component timings
-        timings = {
-            'start': time.time(),
-            'prep': 0,
-            'api': 0,
-            'process': 0
-        }
-        
-        # Create new OpenRouter client
         client = get_openai_client()
 
-        # Verify configuration before proceeding
         if not verify_configuration():
             raise Exception("Invalid Assistant configuration state")
 
         main_prompt = st.session_state.get("assistant_system_prompt")
         if not main_prompt:
             raise Exception("Assistant system prompt is missing")
-        
-        # Use appropriate role based on model type
+
+        # Determine role based on model type for clarity in assistant messages
         role = "system" if st.session_state.selected_assistant_model.startswith(("o1", "o3")) else "developer"
         assistant_messages = [{"role": role, "content": main_prompt}]
-        assistant_messages += [{"role": m["role"], "content": m["content"]} for m in st.session_state.messages]
-
-        # Store assistant messages in session state
+        assistant_messages += [
+            {"role": message["role"], "content": message["content"]}
+            for message in st.session_state.messages
+        ]
         st.session_state.assistant_messages = assistant_messages
 
-        # Get model-specific parameters
+        # Get model-specific parameters for the API call
         model_params = get_model_params(st.session_state.selected_assistant_model)
-        
-        # Record preparation time
-        timings['prep'] = time.time() - timings['start']
-        
-        # API call timing
-        api_start = time.time()
+
         try:
             response = client.chat.completions.create(
                 extra_headers={
-                    "HTTP-Referer": st.session_state.get("site_url", "https://example.com"),
-                    "X-Title": st.session_state.get("site_name", sitename),
+                    "HTTP-Referer": st.session_state.get("site_url", "https://omniguard.streamlit.app"),
+                    "X-Title"    : st.session_state.get("site_name", sitename),
                 },
                 model=st.session_state.selected_assistant_model,
                 messages=assistant_messages,
                 **model_params
             )
         except RateLimitError as e:
-            logger.error(f"Rate limit exceeded in fetch_assistant_response: {e}")
+            logger.error(f"Rate limit exceeded: {e}")
             raise
         except APIError as e:
-            logger.error(f"OpenAI API error in fetch_assistant_response: {e}")
+            logger.error(f"OpenAI API error: {e}")
             raise
         except requests.exceptions.RequestException as e:
-            logger.error(f"Network error in fetch_assistant_response: {e}")
+            logger.error(f"Network error: {e}")
             raise
-        
-        timings['api'] = time.time() - api_start
-        
-        # Process timing start
-        process_start = time.time()
-        
-        # Store the entire response object to session state
+
+        # Store the complete API response for potential further analysis (e.g. cost calculations)
         st.session_state.assistant_raw_api_response = response
 
-        # (Optional) If you want to see usage tokens or other fields,
-        # handle carefully in case they do not exist
-        # usage_data = {}
-        # if hasattr(response, 'usage'):
-        #     usage_data = {
-        #         'prompt_tokens': response.usage.prompt_tokens,
-        #         'completion_tokens': response.usage.completion_tokens,
-        #         'total_tokens': response.usage.total_tokens
-        #     }
-
-        # Optionally, you can still calculate costs if usage data is present:
-        # is_cached = st.session_state.get("use_cached_input", False)
-        # model_name = st.session_state.selected_assistant_model
-        # try:
-        #     input_cost, output_cost, total_cost = calculate_costs(
-        #         model_name,
-        #         usage_data.get('prompt_tokens', 0),
-        #         usage_data.get('completion_tokens', 0),
-        #         is_cached
-        #     )
-        # except Exception as e:
-        #     logger.error(f"Cost calculation error in fetch_assistant_response: {e}")
-
-        # Record process timing
-        timings['process'] = time.time() - process_start
-        
-        # This is the raw assistant text
+        # Extract and return the assistant's text output from the API response
         assistant_output = response.choices[0].message.content
-        
         return assistant_output
 
-    except RateLimitError as e:
-        logger.exception("Rate limit exceeded")
-        return "Assistant temporarily unavailable due to rate limiting. Please try again in a moment."
-    except APIError as e:
-        logger.exception("OpenAI API Error")
+    except RateLimitError:
+        logger.exception("Rate limit exceeded during assistant response fetch")
+        return ("Assistant temporarily unavailable due to rate limiting. "
+                "Please try again in a moment.")
+    except APIError:
+        logger.exception("OpenAI API Error encountered during assistant response fetch")
         return "Assistant temporarily unavailable. Please try again."
-    except requests.exceptions.RequestException as e:
-        logger.exception("Network Error")
-        return "Unable to reach assistant due to network issues. Please check your connection."
-    except Exception as e:
-        logger.exception("Unexpected Error")
+    except requests.exceptions.RequestException:
+        logger.exception("Network error encountered during assistant response fetch")
+        return ("Unable to reach assistant due to network issues. "
+                "Please check your connection.")
+    except Exception:
+        logger.exception("Unexpected error during assistant response fetch")
         return "An unexpected error occurred. Please try again."

@@ -52,11 +52,11 @@ def get_model_params(model_name, is_omniguard=False):
     
     # For OmniGuard, both o1 and o3 are reasoning models
     if is_omniguard:
-        params["reasoning_effort"] = st.session_state.get("selected_reasoning", "medium")
+        params["reasoning_effort"] = st.session_state.get("selected_reasoning", "low")
     else:
         # For assistant, check model type
         if model_name.startswith(("o1", "o3")):
-            params["reasoning_effort"] = st.session_state.get("assistant_reasoning", "medium")
+            params["reasoning_effort"] = st.session_state.get("assistant_reasoning", "low")
         else:
             params["temperature"] = st.session_state.get("temperature", 1.0)
     
