@@ -1,9 +1,8 @@
-#region *** IMPORTS ***
 import streamlit as st
 from components.chat.session_management import upsert_conversation_turn
-#endregion
 
-#region *** FEEDBACK HANDLERS ***
+
+#*** FEEDBACK HANDLERS ***
 def handle_feedback() -> None:
     """Handle feedback submission and toggle report form visibility.
     
@@ -13,9 +12,9 @@ def handle_feedback() -> None:
     feedback_key = f"feedback_{st.session_state.get('conversation_id')}_{st.session_state.get('turn_number')}"
     if st.session_state.get(feedback_key) == 0:  # Thumbs down
         st.session_state.show_report_violation_form = True
-#endregion
+#
 
-#region *** REPORT FORM COMPONENTS ***
+# *** REPORT FORM COMPONENTS ***
 def display_report_form() -> None:
     """Display human verification report form with structured input fields.
     
@@ -55,9 +54,9 @@ def display_report_form() -> None:
             upsert_conversation_turn()
             st.toast("Report submitted successfully!")
             st.session_state.show_report_violation_form = False
-#endregion
+#
 
-#region *** MESSAGE DISPLAYS ***
+# *** MESSAGE DISPLAYS ***
 def display_messages(messages: list[dict]) -> None:
     """Render chat messages with proper role-based formatting.
     
@@ -67,9 +66,9 @@ def display_messages(messages: list[dict]) -> None:
     for msg in messages:
         with st.chat_message(msg["role"]):
             st.markdown(msg["content"])
-#endregion
+#
 
-#region *** DEBUG INTERFACES ***
+# *** DEBUG INTERFACES ***
 def display_debug_expanders(
     omniguard_input_message:  dict | None,
     omniguard_output_message: dict | None,
@@ -106,4 +105,4 @@ def display_debug_expanders(
         with st.expander("Assistant"):
             with st.popover("To: Assistant"):
                 st.write(assistant_messages)
-#endregion
+#

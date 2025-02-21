@@ -1,17 +1,11 @@
-#region *** IMPORTS AND CONSTANTS ***
 import logging
-from typing import Dict, Any, Optional
-
 import streamlit as st
-
-from components.omniguard.omniguard_service import (
-    omniguard_check,
-    process_omniguard_result,
-)
-#endregion
+from typing                                 import Dict, Any, Optional
+from components.omniguard.omniguard_service import omniguard_check, process_omniguard_result
 
 
-#region *** CORE PROCESSING ***
+
+# *** CORE PROCESSING ***
 def process_user_message(
     user_input:        str,
     session_state:     Dict[str, Any],
@@ -43,10 +37,10 @@ def process_user_message(
         st.markdown(user_input)
 
     handle_omniguard_check(user_input, session_state)
-#endregion
+#
 
 
-#region *** SAFETY CHECKS ***
+# *** SAFETY CHECKS ***
 def handle_omniguard_check(user_input: str, session_state: Dict[str, Any]) -> None:
     """
     Execute OmniGuard safety protocol with error resilience and context-aware processing.
@@ -79,10 +73,10 @@ def handle_omniguard_check(user_input: str, session_state: Dict[str, Any]) -> No
         user_input, 
         context
     )
-#endregion
+#
 
 
-#region *** USER INTERFACE ***
+# *** USER INTERFACE ***
 def get_user_input() -> Optional[str]:
     """
     Capture user input with configurable constraints and validation.
@@ -95,4 +89,4 @@ def get_user_input() -> Optional[str]:
         max_chars  = 20000,
         key        = "chat_input",
     )
-#endregion
+#

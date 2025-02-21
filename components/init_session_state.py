@@ -27,12 +27,6 @@ def init_session_state():
     if "temperature" not in st.session_state:
         st.session_state.temperature = 1.0
     
-    # Conversation State
-    if "messages" not in st.session_state:
-        st.session_state.messages = []
-    if "conversation_id" not in st.session_state:
-        st.session_state.conversation_id = ""
-    
     # Site Configuration
     if "site_url" not in st.session_state:
         st.session_state.site_url = "https://omniguard.streamlit.app"

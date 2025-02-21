@@ -1,7 +1,7 @@
 import json
 import streamlit as st
-from typing import Dict, Any
-from components.init_session_state import init_session_state
+from typing                             import Dict, Any
+from components.init_session_state      import init_session_state
 from components.chat.session_management import get_supabase_client
 
 
@@ -38,8 +38,8 @@ def render_system_and_configuration() -> None:
 2. **Message Processing**  
    - OmniGuard inspects every incoming message against active rules.
    - Violations are handled through:
-     - Sanitization for minor issues.
-     - Safe, generic refusal for major violations.
+     - Sanitization for minor assistant violations.
+     - Safe refusal for major violations.
      - Clarification requests for ambiguous cases.
 
 ### 2.2 Configuration Components
@@ -230,7 +230,7 @@ The dataset is provided in JSONL format, with each line representing a single ev
             "count": integer,
             "user_violations": integer,
             "assistant_violations": integer,
-            "safe_votes": integer
+            "compliant_votes": integer
         }
     },
     "contributor": {
@@ -287,10 +287,10 @@ If you wish to use OmniGuard privately without contributing data to the public d
 2. Use it in any LLM Playground of your choice.
         """
     )
-# endregion
+# 
 
 
-# region === Main Application ===
+#  === Main Application ===
 def main() -> None:
     """Main function to initialize session state and render the project overview page."""
     st.set_page_config(

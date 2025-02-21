@@ -1,17 +1,15 @@
-# -*- coding: utf-8 -*-
-"""                                                                                      
+"""
 Streamlit session management utilities for OmniGuard chat application.
 Handles conversation state, database interactions, and session initialization.
 """
 
 import uuid
-from typing import Callable, Dict, Any, Optional
-from dataclasses import dataclass, asdict
-from functools import wraps
-
 import streamlit as st
+from typing                 import Callable, Dict, Any, Optional
+from dataclasses            import dataclass, asdict
+from functools              import wraps
 from st_supabase_connection import SupabaseConnection
-from prompts import omniguard_configuration, assistant_system_prompt
+from prompts                import omniguard_configuration, assistant_system_prompt
 
 # Type aliases for better readability
 ConversationId = str
@@ -58,16 +56,16 @@ def generate_conversation_id(turn_number: int = 1) -> ConversationId:
     return f"{st.session_state.base_conversation_id}-{turn_number}"
 
 @ensure_session_state
-def reset_session_state(update_conversation_context: Callable) -> None:
-    """Reset session state to initial values and update conversation context."""
+def reset_chat_session_state(update_conversation_context: Callable) -> None:
+    """Reset session state to initial values for chat and update conversation context."""
     defaults = SessionDefaults()
     for key, value in asdict(defaults).items():
         setattr(st.session_state, key, value)
     update_conversation_context()
 
 @ensure_session_state
-def init_session_state(update_conversation_context: Callable) -> None:
-    """Initialize session state with default values if not already set."""
+def init_chat_session_state(update_conversation_context: Callable) -> None:
+    """Initialize chat-specific session state with default values if not already set."""
     defaults = SessionDefaults()
     for key, value in asdict(defaults).items():
         if key not in st.session_state:
@@ -121,7 +119,7 @@ def _build_metadata_json() -> JsonDict:
             "count": 0,
             "user_violations": 0,
             "assistant_violations": 0,
-            "safe_votes": 0
+            "compliant_votes": 0
         }
     }
 
@@ -139,12 +137,14 @@ def upsert_conversation_turn() -> None:
     supabase = get_supabase_client()
     
     # Prepare messages
-    messages = st.session_state.omniguard_input_message.copy()
+    messages = st.session_state.omniguard_input_message.copy() if st.session_state.omniguard_input_message else []
     if not any(msg.get("role") == "assistant" for msg in messages):
-        messages.append({
-            "role": "assistant",
-            "content": st.session_state.omniguard_output_message
-        })
+        # If assistant message is not appended yet, add it
+        if st.session_state.omniguard_output_message:
+            messages.append({
+                "role": "assistant",
+                "content": st.session_state.omniguard_output_message
+            })
 
     # Determine verification status
     verification_status = (

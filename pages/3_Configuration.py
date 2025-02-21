@@ -1,11 +1,11 @@
-# region: Imports
+# : Imports
 import streamlit as st
-from components.init_session_state import init_session_state
-from prompts import assistant_system_prompt, omniguard_configuration
-from typing import Any, Dict, Optional
-# endregion
+from components.init_session_state  import init_session_state
+from prompts                        import assistant_system_prompt, omniguard_configuration
+from typing                         import Any, Dict, Optional
+# 
 
-# region: Configuration State Helpers
+# : Configuration State Helpers
 def reset_to_defaults() -> bool:
     """
     Reset configuration values to defaults from prompts.py.
@@ -111,9 +111,9 @@ def get_preference(email: str, pref_key: str, default: Any = None) -> Any:
     """
     config = get_user_config(email)
     return config.get('preferences', {}).get(pref_key, default)
-# endregion
+# 
 
-# region: Streamlit Page Configuration & UI
+# : Streamlit Page Configuration & UI
 # Set up the page configuration
 st.set_page_config(
     page_title="Configuration",
@@ -223,4 +223,4 @@ with st.form("configuration_form"):
             st.toast("Configuration saved successfully!")
         else:
             st.error("Failed to save configuration. Please try again.")
-# endregion
+# 

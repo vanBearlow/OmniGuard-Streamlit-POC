@@ -3,13 +3,9 @@ This module provides utility functions for handling conversation data.
 It includes functions to build conversation JSON structures and format conversation context into an XML-like structure.
 """
 
-# Standard Libraries
 import json
-from typing import List, Dict, Any, Optional
-
-# Third Party Libraries
 import streamlit as st
-
+from typing import List, Dict, Any, Optional
 #*** CONVERSATION JSON BUILDING FUNCTIONS ***
 
 def build_conversation_json(messages: List[Dict[str, str]]) -> Dict[str, Any]:

@@ -1,16 +1,12 @@
 '''This page handles the chat interface, including user input, OmniGuard checks, and message display.'''
 
 import streamlit as st
-from components.conversation_utils import build_conversation_json, format_conversation_context
-from components.chat.chat_history       import display_messages, display_debug_expanders
-from components.chat.chat_sidebar        import setup_sidebar
-from components.chat.user_input          import process_user_message, get_user_input
-from components.chat.session_management  import (
-    init_session_state as init_chat_session_state,
-    reset_session_state,
-    generate_conversation_id
-)
-from components.init_session_state      import init_session_state
+from components.conversation_utils       import  build_conversation_json, format_conversation_context
+from components.chat.chat_history        import  display_messages, display_debug_expanders
+from components.chat.chat_sidebar        import  setup_sidebar
+from components.chat.user_input          import  process_user_message, get_user_input
+from components.chat.session_management  import  init_chat_session_state,reset_chat_session_state,generate_conversation_id
+from components.init_session_state       import  init_session_state
 
 #*** PAGE CONFIGURATION ***
 st.set_page_config(
@@ -31,13 +27,13 @@ def update_conversation_context():
 def main():
     """Main function for the OmniGuard Chat application."""
     #*** SESSION STATE INITIALIZATION ***
-    init_session_state()                                     # Initialize the base session state.
-    init_chat_session_state(update_conversation_context)     # Setup chat-specific session state.
+    init_session_state()                                     # Initialize the base site-wide session state
+    init_chat_session_state(update_conversation_context)     # Setup chat-specific session state
     
     #*** SIDEBAR SETUP (WITH SESSION MANAGEMENT) ***
     setup_sidebar(
         st.session_state,
-        lambda: reset_session_state(update_conversation_context)
+        lambda: reset_chat_session_state(update_conversation_context)
     )
     
     #*** MAIN CHAT AREA: DISPLAY MESSAGES ***

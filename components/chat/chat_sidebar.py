@@ -1,7 +1,7 @@
 import streamlit as st
-from typing import Dict, Any, Protocol
+from typing      import Dict, Any, Protocol
 from dataclasses import dataclass
-from functools import partial
+from functools   import partial
 
 @dataclass
 class ContributorInfo:
@@ -20,7 +20,7 @@ class ResetCallback(Protocol):
     """Type protocol for reset callback function."""
     def __call__(self) -> None: ...
 
-# region *** Documentation Content ***
+#  *** Documentation Content ***
 GETTING_STARTED_DOC = """
 ### 1. Chat with OmniGuard
 Simply type your message and press Enter. Each response will include:
@@ -51,7 +51,7 @@ In the Configuration tab, you can customize:
   - For GPT models: Temperature (0.0 - 2.0)
 - **System Prompt**: Customize assistant behavior
 """
-# endregion
+# 
 
 def render_documentation() -> None:
     """Render the documentation section in an expander."""

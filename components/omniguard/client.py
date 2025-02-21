@@ -1,6 +1,6 @@
 import logging
 import streamlit as st
-from openai import OpenAI
+from openai                       import OpenAI
 from components.service_fallbacks import check_api_key
 
 logger = logging.getLogger(__name__)

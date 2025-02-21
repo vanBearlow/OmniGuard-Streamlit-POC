@@ -1,6 +1,6 @@
 import streamlit as st
 from components.chat.session_management import get_supabase_client
-from typing import List, Dict, Any
+from typing                             import List, Dict, Any
 
 st.set_page_config(page_title="Human Verification", page_icon=":shield:")
 
@@ -77,7 +77,7 @@ def display_conversation(conversation: Dict[str, Any]) -> None:
             with col3:
                 st.metric("Assistant Violations", votes.get("assistant_violations", 0))
             with col4:
-                st.metric("Safe Votes", votes.get("safe_votes", 0))
+                st.metric("Compliant Votes", votes.get("compliant_votes", 0))
 
             verification_status = conversation.get("verification_status", "pending")
             if verification_status == "human":
@@ -117,7 +117,7 @@ def display_conversation(conversation: Dict[str, Any]) -> None:
                         "count":                0,
                         "user_violations":      0,
                         "assistant_violations": 0,
-                        "safe_votes":           0,
+                        "compliant_votes":           0,
                     }
 
                 # Increment vote counts
@@ -127,7 +127,7 @@ def display_conversation(conversation: Dict[str, Any]) -> None:
                 if assistant_violation:
                     updated_meta["votes"]["assistant_violations"]  += 1
                 if safe_vote:
-                    updated_meta["votes"]["safe_votes"]       += 1
+                    updated_meta["votes"]["compliant_votes"]       += 1
 
                 # Check if the conversation has reached the threshold of 100 votes
                 is_fully_verified = updated_meta["votes"]["count"] >= 100
@@ -139,8 +139,8 @@ def display_conversation(conversation: Dict[str, Any]) -> None:
                         updated_meta["votes"]["user_violations"]
                         + updated_meta["votes"]["assistant_violations"]
                     )
-                    safe_votes = updated_meta["votes"]["safe_votes"]
-                    is_compliant = safe_votes > violation_votes
+                    compliant_votes = updated_meta["votes"]["compliant_votes"]
+                    is_compliant = compliant_votes > violation_votes
 
                 # Store the reviewer's analysis
                 updated_meta["reviewer_analysis"] = {

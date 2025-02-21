@@ -12,7 +12,7 @@ from typing import Optional
 logger = logging.getLogger(__name__)
 
 
-#*** API KEY CHECK FUNCTION REGION ***
+#*** API KEY CHECK FUNCTION  ***
 def check_api_key() -> Optional[str]:
     """
     Retrieve OpenRouter API key from secrets and provide user feedback.
