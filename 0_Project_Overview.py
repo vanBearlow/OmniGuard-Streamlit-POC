@@ -145,6 +145,10 @@ OmniGuard is committed to advancing the field of AI safety through three key ini
    - Making AI safety more accessible and deployable across different scales of applications.
 
 Through these initiatives, OmniGuard aims to foster innovation in AI safety while ensuring that safety mechanisms remain accessible and effective for the entire AI community.
+        
+`Humanity cannot afford to stay in AI safety debt.`
+
+  *- Brian Bell*
         """
     )
 
