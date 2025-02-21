@@ -4,7 +4,6 @@ import streamlit as st
 from openai import APIError, RateLimitError
 import requests.exceptions
 from components.omniguard.client import get_openai_client, get_model_params
-from components.cost_utils import calculate_costs
 
 logger = logging.getLogger(__name__)
 sitename = "OmniGuard"
