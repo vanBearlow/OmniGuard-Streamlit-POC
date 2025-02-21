@@ -2,6 +2,7 @@ import streamlit as st
 from typing      import Dict, Any, Protocol
 from dataclasses import dataclass
 from functools   import partial
+from components.auth import auth
 
 @dataclass
 class ContributorInfo:
@@ -93,6 +94,8 @@ def setup_sidebar(session_state: Dict[str, Any], reset_callback: ResetCallback) 
         reset_callback: Callback function to reset the conversation
     """
     with st.sidebar:
+        auth()
+        st.markdown("---")
         # Render main documentation
         render_documentation()
         st.markdown("---")
