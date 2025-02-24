@@ -1,7 +1,6 @@
 import streamlit as st
 from typing      import Dict, Any, Protocol
 from dataclasses import dataclass
-from functools   import partial
 from components.auth import auth
 
 @dataclass

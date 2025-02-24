@@ -13,7 +13,7 @@ def auth():
         user_name = st.experimental_user.name or "User"
         # Store the user's name in session state for later use
         st.session_state["user_name"] = user_name
-        st.write(f"Hello, **{user_name}**!")
+        st.markdown(f"`{user_name}`")
         # Display logout button
         if st.button("Log out"):
             st.logout()
