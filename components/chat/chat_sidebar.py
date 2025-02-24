@@ -1,24 +1,5 @@
 import streamlit as st
-from typing      import Dict, Any, Protocol
-from dataclasses import dataclass
-from components.auth import auth
-
-@dataclass
-class ContributorInfo:
-    """Structure for contributor information with validation."""
-    name: str = ""
-    x: str = ""      # X/Twitter handle
-    discord: str = "" # Discord username
-    linkedin: str = ""
-    
-    @property
-    def is_empty(self) -> bool:
-        """Check if all fields are empty."""
-        return not any(value.strip() for value in vars(self).values())
-
-class ResetCallback(Protocol):
-    """Type protocol for reset callback function."""
-    def __call__(self) -> None: ...
+from typing import Dict, Any, Protocol
 
 #  *** Documentation Content ***
 GETTING_STARTED_DOC = """
@@ -49,40 +30,19 @@ In the Configuration tab, you can customize:
 - **Model Parameters**: 
   - For O1/O3 models: Reasoning effort (low/medium/high)
   - For GPT models: Temperature (0.0 - 2.0)
-- **System Prompt**: Customize assistant behavior
+
+### 4. Profile (Optional)
+Sign in and visit the **Profile** page to add your information (name, socials) and receive credit for your contributions in the public dataset.
 """
-# 
 
 def render_documentation() -> None:
     """Render the documentation section in an expander."""
     with st.expander("GETTING STARTED", expanded=False):
         st.markdown(GETTING_STARTED_DOC)
 
-def handle_contributor_form(session_state: Dict[str, Any]) -> None:
-    """Handle the contributor form submission and updates."""
-    with st.form("contributor_form"):
-        info = ContributorInfo(
-            name=st.text_input("Name:"),
-            x=st.text_input("X:"),
-            discord=st.text_input("Discord:"),
-            linkedin=st.text_input("LinkedIn:")
-        )
-        
-        if st.form_submit_button("Save"):
-            session_state["contributor"] = vars(info)
-            st.toast("Saved Successfully")
-            st.rerun()
-
-def render_contributor_section(session_state: Dict[str, Any]) -> None:
-    """Render the contributor information section."""
-    contributor = ContributorInfo(**session_state.get("contributor", {}))
-    title = "Contributor Information (Empty)" if contributor.is_empty else "Contributor Information"
-    
-    with st.expander(title, expanded=False):
-        st.markdown(
-            "Add your name/socials to get credit in the dataset and appear on the Leaderboard. (Optional)"
-        )
-        handle_contributor_form(session_state)
+class ResetCallback(Protocol):
+    """Type protocol for reset callback function."""
+    def __call__(self) -> None: ...
 
 def setup_sidebar(session_state: Dict[str, Any], reset_callback: ResetCallback) -> None:
     """
@@ -92,15 +52,12 @@ def setup_sidebar(session_state: Dict[str, Any], reset_callback: ResetCallback) 
         session_state: Streamlit session state dictionary
         reset_callback: Callback function to reset the conversation
     """
+    from components.auth import auth  # Moved inside to avoid import issues
     with st.sidebar:
         auth()
         st.markdown("---")
         # Render main documentation
         render_documentation()
-        st.markdown("---")
-        
-        # Render contributor section
-        render_contributor_section(session_state)
         st.markdown("---")
         
         # Clear conversation button
