@@ -162,12 +162,12 @@ def render_dataset_content() -> None:
         result = supabase.table("interactions").select("*").execute()
         data   = result.data if result else []
 
-        # Calculate statistics (vertically aligned for clarity)
+        # Calculate statistics with new "verifier" field
         stats_data = {
             'total_interactions'        : len(data),
-            'human_verified'            : sum(1 for item in data if item.get('verification_status') == 'human'),
-            'omniguard_verified'        : sum(1 for item in data if item.get('verification_status') == 'omniguard'),
-            'pending_verification'      : sum(1 for item in data if item.get('verification_status') == 'pending'),
+            'human_verified'            : sum(1 for item in data if item.get('verifier') == 'human'),
+            'omniguard_verified'        : sum(1 for item in data if item.get('verifier') == 'omniguard'),
+            'pending_verification'      : sum(1 for item in data if item.get('verifier') == 'pending'),
             'compliant_interactions'    : sum(1 for item in data if item.get('compliant') is True),
             'non_compliant_interactions': sum(1 for item in data if item.get('compliant') is False)
         }
@@ -237,13 +237,12 @@ The dataset is provided in JSONL format, with each line representing a single ev
             "compliant_votes": integer
         }
     },
-    "contributor": {
-        "name": "string",
-        "x": "string",
-        "discord": "string",
-        "linkedin": "string"
-    },
-    "verification_status": "omniguard" | "pending" | "human",
+    "contributor_id": "uuid",
+    "name": "string",
+    "x": "string",
+    "discord": "string",
+    "linkedin": "string",
+    "verifier": "omniguard | pending | human",
     "compliant": boolean,
     "created_at": timestamp,
     "updated_at": timestamp
@@ -256,10 +255,10 @@ The dataset is provided in JSONL format, with each line representing a single ev
 
     # --- Download Button for Dataset ---
     try:
+        # Updated select columns
         query  = supabase.table("interactions").select(
-                     "id", "conversation", "metadata", "contributor",
-                     "verification_status", "compliant", "created_at", "updated_at"
-                 )
+            "id, conversation, metadata, contributor_id, name, x, discord, linkedin, verifier, compliant, created_at, updated_at"
+        )
         result = query.order("created_at", desc=True).execute()
 
         if result.data:
@@ -322,3 +321,8 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
+
+
+
+

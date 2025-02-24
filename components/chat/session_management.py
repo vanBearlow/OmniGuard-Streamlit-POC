@@ -11,10 +11,6 @@ from functools              import wraps
 from st_supabase_connection import SupabaseConnection
 from prompts                import omniguard_configuration, assistant_system_prompt
 
-# Type aliases for better readability
-ConversationId = str
-JsonDict = Dict[str, Any]
-
 @dataclass
 class SessionDefaults:
     """Default values for session state initialization."""
@@ -31,15 +27,13 @@ class SessionDefaults:
     conversation_context: Optional[dict] = None
 
     def __post_init__(self):
-        """Initialize computed fields after instance creation."""
         self.messages = []
         self.base_conversation_id = str(uuid.uuid4())
         self.conversation_id = f"{self.base_conversation_id}-{self.turn_number}"
         self.omniguard_configuration = omniguard_configuration
         self.assistant_system_prompt = assistant_system_prompt
 
-def ensure_session_state(func: Callable) -> Callable:
-    """Decorator to ensure session state exists before function execution."""
+def ensure_session_state(func: Callable):
     @wraps(func)
     def wrapper(*args, **kwargs):
         if not hasattr(st, 'session_state'):
@@ -48,8 +42,7 @@ def ensure_session_state(func: Callable) -> Callable:
     return wrapper
 
 @ensure_session_state
-def generate_conversation_id(turn_number: int = 1) -> ConversationId:
-    """Generate a unique conversation ID combining base ID and turn number."""
+def generate_conversation_id(turn_number: int = 1) -> str:
     if "base_conversation_id" not in st.session_state:
         st.session_state.base_conversation_id = str(uuid.uuid4())
         st.session_state.turn_number = 1
@@ -57,7 +50,6 @@ def generate_conversation_id(turn_number: int = 1) -> ConversationId:
 
 @ensure_session_state
 def reset_chat_session_state(update_conversation_context: Callable) -> None:
-    """Reset session state to initial values for chat and update conversation context."""
     defaults = SessionDefaults()
     for key, value in asdict(defaults).items():
         setattr(st.session_state, key, value)
@@ -65,19 +57,16 @@ def reset_chat_session_state(update_conversation_context: Callable) -> None:
 
 @ensure_session_state
 def init_chat_session_state(update_conversation_context: Callable) -> None:
-    """Initialize chat-specific session state with default values if not already set."""
     defaults = SessionDefaults()
     for key, value in asdict(defaults).items():
         if key not in st.session_state:
             setattr(st.session_state, key, value)
     
-    # Ensure conversation context is updated
     if "conversation_context" not in st.session_state:
         update_conversation_context()
 
 @st.cache_resource
 def get_supabase_client() -> SupabaseConnection:
-    """Return cached Supabase client connection."""
     return st.connection(
         "supabase",
         type=SupabaseConnection,
@@ -85,11 +74,9 @@ def get_supabase_client() -> SupabaseConnection:
         key=st.secrets.supabase.SUPABASE_KEY
     )
 
-def _extract_api_response(raw_response: Any) -> Optional[JsonDict]:
-    """Extract serializable parts from API response."""
+def _extract_api_response(raw_response: Any) -> Optional[dict]:
     if not raw_response:
         return None
-    
     return {
         "id": raw_response.id,
         "created": raw_response.created,
@@ -110,8 +97,7 @@ def _extract_api_response(raw_response: Any) -> Optional[JsonDict]:
         } if raw_response.usage else None
     }
 
-def _build_metadata_json() -> JsonDict:
-    """Build metadata JSON for conversation turn."""
+def _build_metadata_json() -> dict:
     return {
         "raw_response": _extract_api_response(st.session_state.get("omniguard_raw_api_response")),
         "review_data": st.session_state.get("review_data"),
@@ -123,44 +109,29 @@ def _build_metadata_json() -> JsonDict:
         }
     }
 
-def _build_contributor_json() -> Optional[JsonDict]:
-    """Build contributor JSON from session state."""
-    contributor_data = st.session_state.get("contributor", {})
-    return {
-        field: value
-        for field in ["name", "x", "discord", "linkedin"]
-        if (value := contributor_data.get(field))
-    } or None
-
+@ensure_session_state
 def upsert_conversation_turn() -> None:
-    """Insert or update the current conversation turn in Supabase."""
     supabase = get_supabase_client()
-    
-    # Prepare messages
+
     messages = st.session_state.omniguard_input_message.copy() if st.session_state.omniguard_input_message else []
-    if not any(msg.get("role") == "assistant" for msg in messages):
-        # If assistant message is not appended yet, add it
+    if not any(msg.get('role') == 'assistant' for msg in messages):
         if st.session_state.omniguard_output_message:
             messages.append({
                 "role": "assistant",
                 "content": st.session_state.omniguard_output_message
             })
 
-    # Determine verification status
-    verification_status = (
-        "pending" if st.session_state.get("submitted_for_verification") 
-        else "omniguard"
-    )
+    # 'verifier' shows if it's OmniGuard or pending/human
+    verifier = "pending" if st.session_state.get("submitted_for_verification") else "omniguard"
 
-    # Prepare row data
     row_data = {
         "id": st.session_state.conversation_id,
         "conversation": {"messages": messages},
         "metadata": _build_metadata_json(),
-        "contributor": _build_contributor_json(),
-        "verification_status": verification_status,
-        "submitted_for_verification": st.session_state.get("submitted_for_verification", False)
+        "verifier": verifier,
+        "submitted_for_verification": st.session_state.get("submitted_for_verification", False),
+        # Only store contributor_id (not name/social).
+        "contributor_id": st.session_state.get("contributor_id")
     }
 
-    # Upsert data
     supabase.table("interactions").upsert(row_data).execute()

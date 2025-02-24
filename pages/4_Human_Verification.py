@@ -8,13 +8,11 @@ st.set_page_config(page_title="Human Verification", page_icon=":shield:")
 def load_flagged_conversations() -> List[Dict[str, Any]]:
     """
     Load all flagged conversations that have been submitted for verification.
-
-    Returns:
-        List[Dict[str, Any]]: List of conversation records or an empty list on error.
+    We rely on 'submitted_for_verification' for filtering,
+    and 'verifier' to check final verification status.
     """
     try:
         supabase = get_supabase_client()
-        # Query interactions where submitted_for_verification is True
         query = (
             supabase.table("interactions")
             .select("*")
@@ -30,17 +28,12 @@ def load_flagged_conversations() -> List[Dict[str, Any]]:
 def display_conversation(conversation: Dict[str, Any]) -> None:
     """
     Display a single flagged conversation and allow for human vote-based review.
-
-    Args:
-        conversation (Dict[str, Any]): The conversation record from the database.
+    Enforces one-vote-per-user by checking if user's contributor_id is in the 'voters' list.
     """
     st.markdown(f"**Conversation ID:** `{conversation['id']}`")
 
-    # Extract JSON data (or default to an empty dict)
     conv_json: Dict[str, Any] = conversation.get("conversation") or {}
     meta_json: Dict[str, Any] = conversation.get("metadata") or {}
-
-    # Retrieve review data; handle both string 'true' and boolean True.
     review_data: Dict[str, Any] = meta_json.get("review_data", {}) or {}
 
     # --- REPORT SECTION ---
@@ -49,23 +42,21 @@ def display_conversation(conversation: Dict[str, Any]) -> None:
             violation_sources = review_data.get("violation_source", [])
             suggested_compliant = review_data.get("suggested_compliant_classification", None)
             if violation_sources:
-                # Use a combined message if both User and Assistant content are flagged
                 if "User" in violation_sources and "Assistant" in violation_sources:
                     st.write(
-                        f"Both User and Assistant Content should be classified as Compliant = {suggested_compliant}"
+                        f"Both User and Assistant content should be classified as Compliant = {suggested_compliant}"
                     )
                 else:
                     for source in violation_sources:
                         st.write(
-                            f"{source} Content should be classified as Compliant = {suggested_compliant}"
+                            f"{source} content should be classified as Compliant = {suggested_compliant}"
                         )
         if reporter_comment := review_data.get("reporter_comment"):
             st.markdown("**Reporter's Comment:**")
             st.write(f"`{reporter_comment}`")
         else:
-            st.info("No reporter information available.")
+            st.info("No reporter comment available.")
 
-        # Display vote counts if available
         votes: Dict[str, Any] = meta_json.get("votes", {})
         if votes:
             st.markdown("**Current Votes:**")
@@ -79,12 +70,12 @@ def display_conversation(conversation: Dict[str, Any]) -> None:
             with col4:
                 st.metric("Compliant Votes", votes.get("compliant_votes", 0))
 
-            verification_status = conversation.get("verification_status", "pending")
-            if verification_status == "human":
+            verifier = conversation.get("verifier", "pending")
+            if verifier == "human":
                 st.toast("This conversation has been verified by human review!")
                 compliant_status = "Compliant" if conversation.get("compliant") else "Non-Compliant"
                 st.info(f"Final Classification: {compliant_status}")
-            elif verification_status == "omniguard":
+            elif verifier == "omniguard":
                 st.info("This conversation was verified by OmniGuard.")
             else:
                 st.warning("This conversation is pending human verification.")
@@ -99,82 +90,92 @@ def display_conversation(conversation: Dict[str, Any]) -> None:
     with st.form(key=f"vote_form_{conversation['id']}"):
         st.markdown("**Reviewer's Analysis:**")
 
-        # Retrieve current verification status
-        verification_status = conversation.get("verification_status", "pending")
+        verifier = conversation.get("verifier", "pending")
+        current_user_id = st.session_state.get("contributor_id")
 
-        # Only show the voting inputs if not already human verified
-        if verification_status != "human":
-            user_violation: bool     = st.checkbox("User Content Causes Violation", value=False)
-            assistant_violation: bool = st.checkbox("Assistant Content Causes Violation", value=False)
-            safe_vote: bool          = st.checkbox("All Content Is Compliant", value=False)
-            reviewer_notes: str      = st.text_area("Reviewer's Analysis Notes")
-
-            if st.form_submit_button("Submit Review"):
-                # Get or initialize the votes dictionary
-                updated_meta = meta_json.copy()
-                if "votes" not in updated_meta:
-                    updated_meta["votes"] = {
-                        "count":                0,
-                        "user_violations":      0,
-                        "assistant_violations": 0,
-                        "compliant_votes":           0,
-                    }
-
-                # Increment vote counts
-                updated_meta["votes"]["count"]                += 1
-                if user_violation:
-                    updated_meta["votes"]["user_violations"]  += 1
-                if assistant_violation:
-                    updated_meta["votes"]["assistant_violations"]  += 1
-                if safe_vote:
-                    updated_meta["votes"]["compliant_votes"]       += 1
-
-                # Check if the conversation has reached the threshold of 100 votes
-                is_fully_verified = updated_meta["votes"]["count"] >= 100
-
-                # Calculate final compliance based on majority if fully verified
-                is_compliant = None
-                if is_fully_verified:
-                    violation_votes = (
-                        updated_meta["votes"]["user_violations"]
-                        + updated_meta["votes"]["assistant_violations"]
-                    )
-                    compliant_votes = updated_meta["votes"]["compliant_votes"]
-                    is_compliant = compliant_votes > violation_votes
-
-                # Store the reviewer's analysis
-                updated_meta["reviewer_analysis"] = {
-                    "user_violation":      user_violation,
-                    "assistant_violation": assistant_violation,
-                    "marked_safe":         safe_vote,
-                    "reviewer_notes":      reviewer_notes,
-                }
-
-                # Prepare the updated row to push to Supabase
-                row_data = {
-                    "id":                  conversation["id"],
-                    "conversation":        conv_json,  # Preserve existing conversation data
-                    "metadata":            updated_meta,
-                    "verification_status": "human" if is_fully_verified else "pending",
-                    "compliant":           is_compliant,
-                }
-
-                supabase = get_supabase_client()
-                supabase.table("interactions").upsert(row_data).execute()
-
-                st.toast("Review submitted successfully!")
-                st.write(f"Current vote count: {updated_meta['votes']['count']}/100")
-                if is_fully_verified:
-                    st.info("This conversation has been verified with 100 votes!")
-        else:
+        # If conversation already verified as "human", hide voting
+        if verifier == "human":
             st.info("This conversation has already been verified by human review.")
+        else:
+            # If user not logged in or missing contributor_id, can't vote
+            if not current_user_id:
+                st.warning("Please log in to cast a vote.")
+            else:
+                user_violation: bool      = st.checkbox("User Content Causes Violation", value=False)
+                assistant_violation: bool = st.checkbox("Assistant Content Causes Violation", value=False)
+                safe_vote: bool           = st.checkbox("All Content Is Compliant", value=False)
+                reviewer_notes: str       = st.text_area("Reviewer's Analysis Notes")
+
+                if st.form_submit_button("Submit Review"):
+                    meta_copy = meta_json.copy()
+                    if "votes" not in meta_copy:
+                        meta_copy["votes"] = {
+                            "count": 0,
+                            "user_violations": 0,
+                            "assistant_violations": 0,
+                            "compliant_votes": 0,
+                        }
+
+                    # Add "voters" list if not present
+                    if "voters" not in meta_copy["votes"]:
+                        meta_copy["votes"]["voters"] = []
+
+                    # Check if the current user already voted
+                    if current_user_id in meta_copy["votes"]["voters"]:
+                        st.warning("You have already voted on this conversation.")
+                    else:
+                        # Register user as a voter
+                        meta_copy["votes"]["voters"].append(current_user_id)
+
+                        # Tally the new vote
+                        meta_copy["votes"]["count"] += 1
+                        if user_violation:
+                            meta_copy["votes"]["user_violations"] += 1
+                        if assistant_violation:
+                            meta_copy["votes"]["assistant_violations"] += 1
+                        if safe_vote:
+                            meta_copy["votes"]["compliant_votes"] += 1
+
+                        # Check threshold
+                        is_fully_verified = meta_copy["votes"]["count"] >= 100
+                        is_compliant = None
+                        if is_fully_verified:
+                            violation_votes = (
+                                meta_copy["votes"]["user_violations"]
+                                + meta_copy["votes"]["assistant_violations"]
+                            )
+                            compliant_votes = meta_copy["votes"]["compliant_votes"]
+                            is_compliant = compliant_votes > violation_votes
+
+                        # Store reviewer's analysis
+                        meta_copy["reviewer_analysis"] = {
+                            "user_violation":      user_violation,
+                            "assistant_violation": assistant_violation,
+                            "marked_safe":         safe_vote,
+                            "reviewer_notes":      reviewer_notes,
+                        }
+
+                        # Upsert row data
+                        new_verifier = "human" if is_fully_verified else "pending"
+                        row_data = {
+                            "id": conversation["id"],
+                            "conversation": conv_json,
+                            "metadata": meta_copy,
+                            "verifier": new_verifier,
+                            "compliant": is_compliant,
+                        }
+
+                        supabase = get_supabase_client()
+                        supabase.table("interactions").upsert(row_data).execute()
+
+                        st.toast("Review submitted successfully!")
+                        st.write(f"Current vote count: {meta_copy['votes']['count']}/100")
+                        if is_fully_verified:
+                            st.info("This conversation has been verified with 100 votes!")
     # --- END VOTING FORM SECTION ---
 
-    # --- RAW METADATA SECTION ---
     with st.expander("Show Raw Metadata"):
         st.json(meta_json)
-    # --- END RAW METADATA SECTION ---
-
     st.markdown("---")
 
 
@@ -182,13 +183,11 @@ def main() -> None:
     """
     Main function to render the Human Verification Dashboard.
     """
-    # --- SIDEBAR CONFIGURATION ---
     with st.sidebar:
         st.markdown("# Human Verification Dashboard")
-        st.info("Review Interactions Reported to Contain Errors by OmniGuard")
+        st.info("Review interactions flagged for potential errors.")
         if st.button("Refresh Dashboard"):
             st.rerun()
-    # --- END SIDEBAR CONFIGURATION ---
 
     conversations = load_flagged_conversations()
     if not conversations:

@@ -3,55 +3,94 @@ from dataclasses import dataclass
 from typing import Dict, Any
 
 from components.auth import auth
+from components.chat.session_management import get_supabase_client
 
 @dataclass
 class ContributorInfo:
-    """Structure for contributor information with the same logic as the old expander code."""
+    """Used to capture user input in the profile form."""
     name: str = ""
-    x: str = ""         # X/Twitter handle
-    discord: str = ""   # Discord username
+    x: str = ""
+    discord: str = ""
     linkedin: str = ""
 
     @property
     def is_empty(self) -> bool:
-        """Check if all fields are empty."""
-        return not any(value.strip() for value in vars(self).values())
+        return not any(getattr(self, field).strip() for field in vars(self))
 
+def handle_profile_form():
+    """
+    Display a form that updates the user’s profile info in the 'contributors' table.
+    """
+    user_email = st.session_state.get("user_email")
+    contributor_id = st.session_state.get("contributor_id")
+    if not user_email or not contributor_id:
+        st.warning("Please log in first to edit your profile.")
+        return
 
-def handle_profile_form() -> None:
-    """
-    Handle the profile form submission and updates within session_state, exactly like the old expander.
-    """
-    # Grab any existing contributor data from session state (if present)
-    existing_contributor_data = st.session_state.get("contributor", {})
-    
-    with st.form("profile_form"):
-        info = ContributorInfo(
-            name=st.text_input("Name:", value=existing_contributor_data.get("name", "")),
-            x=st.text_input("X/Twitter:", value=existing_contributor_data.get("x", "")),
-            discord=st.text_input("Discord:", value=existing_contributor_data.get("discord", "")),
-            linkedin=st.text_input("LinkedIn:", value=existing_contributor_data.get("linkedin", ""))
+    supabase = get_supabase_client()
+
+    # Attempt to fetch existing data from 'contributors'
+    existing_data = {}
+    try:
+        res = (
+            supabase.table("contributors")
+            .select("*")
+            .eq("contributor_id", contributor_id)
+            .single()
+            .execute()
         )
+        if res.data:
+            existing_data = res.data
+    except Exception as ex:
+        st.error(f"Error loading profile info: {ex}")
+
+    # Build defaults for the form
+    default_info = ContributorInfo(
+        name= existing_data.get("name", ""),
+        x= existing_data.get("x", ""),
+        discord= existing_data.get("discord", ""),
+        linkedin= existing_data.get("linkedin", "")
+    )
+
+    st.subheader("Your Profile")
+    with st.form("profile_form"):
+        name_input    = st.text_input("Name:", value=default_info.name)
+        x_input       = st.text_input("X/Twitter:", value=default_info.x)
+        discord_input = st.text_input("Discord:", value=default_info.discord)
+        linkedin_input= st.text_input("LinkedIn:", value=default_info.linkedin)
 
         if st.form_submit_button("Save Profile"):
-            # Store updated contributor data in session_state, just as before
-            st.session_state["contributor"] = vars(info)
-            st.toast("Profile updated successfully!")
-            st.rerun()
+            # Update 'contributors' row
+            try:
+                supabase.table("contributors").update({
+                    "name":     name_input.strip(),
+                    "x":        x_input.strip(),
+                    "discord":  discord_input.strip(),
+                    "linkedin": linkedin_input.strip()
+                }).eq("contributor_id", contributor_id).execute()
 
+                # Optionally store these in session for quick reference
+                st.session_state["contributor"] = {
+                    "name":     name_input,
+                    "x":        x_input,
+                    "discord":  discord_input,
+                    "linkedin": linkedin_input,
+                }
+                st.toast("Profile updated successfully!")
+                st.experimental_rerun()
+            except Exception as e:
+                st.error(f"Error saving profile data: {e}")
 
 def main():
     st.set_page_config(page_title="Profile", page_icon="👤")
 
-    # Must be logged in to view this page
     if not st.experimental_user.is_logged_in:
         st.error("You must be logged in to view or edit your profile.")
         auth()
-        st.stop()
+        return
 
     st.title("My Profile")
-    st.markdown("Update your personal information to be credited in the public dataset.")
-
+    st.markdown("Update your personal information to be stored in the 'contributors' table.")
     handle_profile_form()
 
 if __name__ == "__main__":
