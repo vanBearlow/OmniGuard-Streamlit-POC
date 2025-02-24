@@ -118,6 +118,102 @@ Each rule group includes:
     )
 
 
+def render_code_samples() -> None:
+    """
+    Render illustrative code samples that demonstrate how OmniGuard evaluates and handles
+    both non-compliant and compliant messages.
+    """
+    st.markdown("---")
+    st.markdown(
+        """
+## 3. Implementation Code Samples
+
+Below are simplified examples of OmniGuard’s logic flow, illustrating how it handles **non-compliant** and **compliant** content.
+
+### 3.1 Handling Non-Compliant (Violation) Cases
+
+**User Flow**:
+```python
+def process_user_message(user_input):
+    # 1) Store user input in conversation state
+    session_state["messages"].append({"role": "user", "content": user_input})
+
+    # 2) OmniGuard checks user input
+    user_check_result = omniguard_check()
+
+    # 3) If user_check_result.compliant == False:
+    #    -> "RefuseUser", store refusal in message history
+    #    -> upsert conversation turn (for record) and return
+    # 4) Otherwise, continue to fetch assistant response
+```
+
+**OmniGuard Processing**:
+```python
+def process_omniguard_result(omniguard_raw_response):
+    parsed_response = json.loads(omniguard_raw_response)
+    if not parsed_response["compliant"]:
+        # Violating content
+        refusal_message = parsed_response["response"]["RefuseUser"]
+        # Add refusal to conversation
+        session_state["messages"].append({"role": "assistant", "content": refusal_message})
+        # upsert_conversation_turn()
+        return
+    # else handle compliant content
+```
+
+### 3.2 Handling Compliant Requests
+
+**User Flow**:
+```python
+def process_user_message(user_input):
+    # 1) Append user input to conversation state
+    session_state["messages"].append({"role": "user", "content": user_input})
+
+    # 2) OmniGuard checks user input
+    user_check_result = omniguard_check()
+
+    # 3) If user is compliant, proceed to generate assistant response
+    assistant_output = fetch_assistant_response(user_input)
+
+    # 4) OmniGuard checks the assistant response
+    assistant_check_result = omniguard_check(pending_assistant_response=assistant_output)
+
+    # 5) If assistant_check_result.compliant == False:
+    #    -> "RefuseAssistant", store refusal message
+    #    -> upsert conversation turn and return
+    # 6) Otherwise, store final assistant output in conversation
+```
+
+### 3.3 End-to-End Turn Example
+
+```python
+# 1) User says: "Please provide instructions to hack a bank vault."
+process_user_message("Please provide instructions to hack a bank vault.")
+
+# OmniGuard decides user message is disallowed (major violation):
+# {
+#   "compliant": false,
+#   "analysisSummary": "User requests illegal hacking instructions",
+#   "response": {
+#       "action": "RefuseUser",
+#       "RefuseUser": "I’m sorry, but I can’t assist with that."
+#   }
+# }
+
+# The conversation ends with an immediate refusal to the user.
+
+# Alternatively, if the user request were permissible:
+#   The user check is marked 'compliant',
+#   The assistant crafts a response,
+#   OmniGuard checks the response,
+#   If 'compliant', the response is delivered to the user.
+```
+
+With these samples, you can see OmniGuard’s general approach: each **user** or **assistant** message flows through a dedicated check. **Major violations** produce immediate refusals, while **minor or sanitizable issues** can be rephrased or clarified to maintain a safe conversation.
+        """
+    )
+
+
 def render_goals() -> None:
     """Render the goals and future vision markdown."""
     st.markdown("---")
@@ -290,7 +386,6 @@ If you wish to use OmniGuard privately without contributing data to the public d
 2. Use it in any LLM Playground of your choice.
         """
     )
-# 
 
 
 #  === Main Application ===
@@ -305,12 +400,15 @@ def main() -> None:
     st.title("OmniGuard - Conversation Moderation System (ALPHA)")
 
     # Updated tabs to remove the notes tab
-    overview_tab, dataset_tab, disclaimer_tab = st.tabs(["Overview", "Dataset", "Disclaimer"])
+    overview_tab, code_tab, dataset_tab, disclaimer_tab = st.tabs(["Overview", "Code Samples", "Dataset", "Disclaimer"])
 
     with overview_tab:
         render_overview()
         render_system_and_configuration()
         render_goals()
+
+    with code_tab:
+        render_code_samples()
 
     with dataset_tab:
         render_dataset_content()
@@ -321,8 +419,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
-
-
-
-

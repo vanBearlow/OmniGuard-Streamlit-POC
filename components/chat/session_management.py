@@ -16,7 +16,7 @@ class SessionDefaults:
     """Default values for session state initialization."""
     messages: list = None
     base_conversation_id: str = None
-    turn_number: int = 1
+    turn_number: int = 0  # <--- START AT 0, updated requirement
     conversation_id: str = None
     omniguard_input_message: Optional[list] = None
     omniguard_output_message: Optional[str] = None
@@ -42,10 +42,10 @@ def ensure_session_state(func: Callable):
     return wrapper
 
 @ensure_session_state
-def generate_conversation_id(turn_number: int = 1) -> str:
+def generate_conversation_id(turn_number: int = 0) -> str:
     if "base_conversation_id" not in st.session_state:
         st.session_state.base_conversation_id = str(uuid.uuid4())
-        st.session_state.turn_number = 1
+        st.session_state.turn_number = 0
     return f"{st.session_state.base_conversation_id}-{turn_number}"
 
 @ensure_session_state
@@ -121,7 +121,6 @@ def upsert_conversation_turn() -> None:
                 "content": st.session_state.omniguard_output_message
             })
 
-    # 'verifier' shows if it's OmniGuard or pending/human
     verifier = "pending" if st.session_state.get("submitted_for_verification") else "omniguard"
 
     row_data = {
@@ -130,7 +129,6 @@ def upsert_conversation_turn() -> None:
         "metadata": _build_metadata_json(),
         "verifier": verifier,
         "submitted_for_verification": st.session_state.get("submitted_for_verification", False),
-        # Only store contributor_id (not name/social).
         "contributor_id": st.session_state.get("contributor_id")
     }
 

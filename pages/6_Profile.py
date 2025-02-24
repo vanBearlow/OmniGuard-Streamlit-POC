@@ -27,6 +27,9 @@ def handle_profile_form():
         st.warning("Please log in first to edit your profile.")
         return
 
+    # Show contributor_id
+    st.markdown(f"**Your Contributor ID:** `{contributor_id}`")
+
     supabase = get_supabase_client()
 
     # Attempt to fetch existing data from 'contributors'

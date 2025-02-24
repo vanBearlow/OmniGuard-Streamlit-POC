@@ -14,7 +14,7 @@ from components.conversation_utils       import  build_conversation_json, format
 from components.chat.chat_history        import  display_messages, display_debug_expanders
 from components.chat.chat_sidebar        import  setup_sidebar
 from components.chat.user_input          import  process_user_message, get_user_input
-from components.chat.session_management  import  init_chat_session_state,reset_chat_session_state,generate_conversation_id
+from components.chat.session_management  import  init_chat_session_state,reset_chat_session_state
 from components.init_session_state       import  init_session_state
 
 # Constants
@@ -34,9 +34,6 @@ def update_conversation_context():
     1. Builds a JSON representation of the current conversation from message history
     2. Formats the conversation context for optimal processing
     3. Updates the session state with the new context
-
-    The conversation context is used by OmniGuard to maintain conversation state
-    and perform security checks based on the full chat history.
     """
     conversation = build_conversation_json(st.session_state.messages)
     st.session_state.conversation_context = format_conversation_context(conversation)
@@ -70,7 +67,8 @@ def main():
         process_user_message(
             user_input,
             st.session_state,
-            generate_conversation_id,
+            # We no longer generate conversation_id here; that logic was removed
+            lambda x: x,  # placeholder for a generate_id function not used now
             update_conversation_context
         )
     
