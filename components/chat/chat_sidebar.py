@@ -40,6 +40,12 @@ def render_documentation() -> None:
     with st.expander("GETTING STARTED", expanded=False):
         st.markdown(GETTING_STARTED_DOC)
 
+def render_conversation_stats(session_state: Dict[str, Any]) -> None:
+    """Render the conversation stats section in an expander."""
+    with st.expander("Conversation Stats", expanded=False):
+        #TODO: add conversation stats. Id, turn number
+        st.markdown("Conversation Stats")
+
 class ResetCallback(Protocol):
     """Type protocol for reset callback function."""
     def __call__(self) -> None: ...
@@ -59,6 +65,10 @@ def setup_sidebar(session_state: Dict[str, Any], reset_callback: ResetCallback) 
         # Render main documentation
         render_documentation()
         st.markdown("---")
+
+        # Conversation stats
+        render_conversation_stats(session_state)    
+        st.markdown("---")
         
         # Clear conversation button
         if st.button("Clear Conversation :broom:") and session_state.get("messages"):
@@ -67,5 +77,5 @@ def setup_sidebar(session_state: Dict[str, Any], reset_callback: ResetCallback) 
         
         # Help section
         st.markdown("---")
-        st.markdown("## Need Help? Leave Feedback?")
-        st.markdown("Contact: [brianbellx](https://x.com/brianbellx)")
+        st.caption("Need Help? Leave Feedback?")
+        st.caption("Contact: [brianbellx](https://x.com/brianbellx)")
