@@ -19,15 +19,45 @@ class ContributorInfo:
 
 def handle_profile_form():
     """
-    Display a form that updates the user’s profile info in the 'contributors' table.
+    Display a form that updates the user's profile info in the 'contributors' table.
     """
-    user_email = st.session_state.get("user_email")
-    contributor_id = st.session_state.get("contributor_id")
-    if not user_email or not contributor_id:
+    # Get user info directly from st.experimental_user if logged in
+    if st.experimental_user.is_logged_in:
+        user_email = st.experimental_user.email
+        
+        # Ensure user's email is in session state
+        if "user_email" not in st.session_state:
+            st.session_state["user_email"] = user_email
+            
+        # If contributor_id is not in session state, retrieve it from database
+        if "contributor_id" not in st.session_state:
+            supabase = get_supabase_client()
+            try:
+                res = (
+                    supabase.table("contributors")
+                    .select("*")
+                    .eq("email", user_email)
+                    .execute()
+                )
+                if res.data:
+                    st.session_state["contributor_id"] = res.data[0]["contributor_id"]
+                else:
+                    # No contributor found - they need to use the auth flow first
+                    st.warning("Please use the login button to complete authentication setup.")
+                    auth()
+                    return
+            except Exception as ex:
+                st.error(f"Error retrieving contributor data: {ex}")
+                return
+    else:
         st.warning("Please log in first to edit your profile.")
+        auth()
         return
 
-
+    # Now proceed with the profile form since we have the user_email and contributor_id
+    user_email = st.session_state.get("user_email")
+    contributor_id = st.session_state.get("contributor_id")
+    
     supabase = get_supabase_client()
 
     # Attempt to fetch existing data from 'contributors'

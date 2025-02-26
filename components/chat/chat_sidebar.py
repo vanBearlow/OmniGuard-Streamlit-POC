@@ -3,6 +3,8 @@ from typing import Dict, Any, Protocol
 
 #  *** Documentation Content ***
 GETTING_STARTED_DOC = """
+### Make sure you're logged in and profile is complete to get credit for your contributions!
+
 ### 1. Chat with OmniGuard
 Simply type your message and press Enter. Each response will include:
 - OmniGuard's classification
@@ -42,7 +44,7 @@ def render_documentation() -> None:
 
 def render_conversation_stats(session_state: Dict[str, Any]) -> None:
     """Render the conversation stats section in an expander."""
-    with st.expander("Conversation Stats", expanded=False):
+    with st.expander("CONVERSATION STATS", expanded=False):
         #TODO: add conversation stats. Id, turn number
         st.markdown("Conversation Stats")
 
@@ -58,10 +60,7 @@ def setup_sidebar(session_state: Dict[str, Any], reset_callback: ResetCallback) 
         session_state: Streamlit session state dictionary
         reset_callback: Callback function to reset the conversation
     """
-    from components.auth import auth  # Moved inside to avoid import issues
     with st.sidebar:
-        auth()
-        st.markdown("---")
         # Render main documentation
         render_documentation()
         st.markdown("---")
@@ -71,7 +70,7 @@ def setup_sidebar(session_state: Dict[str, Any], reset_callback: ResetCallback) 
         st.markdown("---")
         
         # Clear conversation button
-        if st.button("Clear Conversation :broom:") and session_state.get("messages"):
+        if st.button("CLEAR CHAT", use_container_width=True) and session_state.get("messages"):
             reset_callback()
             st.rerun()
         
