@@ -1,6 +1,11 @@
 import streamlit as st
+from components.init_session_state import init_session_state
+from components.banner import show_alpha_banner
 
 st.set_page_config(page_title="Leaderboard", page_icon="🏆")
+
+# Show alpha banner
+show_alpha_banner()
 
 def init_leaderboard_state():
     """Initialize leaderboard state in session."""

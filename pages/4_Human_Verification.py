@@ -1,8 +1,13 @@
 import streamlit as st
 from components.chat.session_management import get_supabase_client
 from typing                             import List, Dict, Any
+from components.init_session_state import init_session_state
+from components.banner import show_alpha_banner
 
-st.set_page_config(page_title="Human Verification", page_icon=":shield:")
+st.set_page_config(page_title="Human Verification", page_icon="🔍")
+
+# Show alpha banner
+show_alpha_banner()
 
 
 def load_flagged_conversations() -> List[Dict[str, Any]]:

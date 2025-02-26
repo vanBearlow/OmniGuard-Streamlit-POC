@@ -16,6 +16,7 @@ from components.chat.chat_sidebar        import  setup_sidebar
 from components.chat.user_input          import  process_user_message, get_user_input
 from components.chat.session_management  import  init_chat_session_state,reset_chat_session_state
 from components.init_session_state       import  init_session_state
+from components.banner                   import  show_alpha_banner
 
 # Constants
 PAGE_ICON = " :shield:"  # Shield emoji for visual appeal
@@ -25,6 +26,9 @@ st.set_page_config(
     page_title="OmniGuard Chat",
     page_icon=PAGE_ICON
 )
+
+# Show alpha banner
+show_alpha_banner()
 
 def update_conversation_context():
     """

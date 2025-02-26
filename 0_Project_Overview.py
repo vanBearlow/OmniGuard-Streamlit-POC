@@ -3,6 +3,7 @@ import streamlit as st
 from typing                             import Dict, Any
 from components.init_session_state      import init_session_state
 from components.chat.session_management import get_supabase_client
+from components.banner                  import show_alpha_banner
 
 
 
@@ -128,7 +129,7 @@ def render_code_samples() -> None:
         """
 ## 3. Implementation Code Samples
 
-Below are simplified examples of OmniGuard’s logic flow, illustrating how it handles **non-compliant** and **compliant** content.
+Below are simplified examples of OmniGuard's logic flow, illustrating how it handles **non-compliant** and **compliant** content.
 
 ### 3.1 Handling Non-Compliant (Violation) Cases
 
@@ -196,7 +197,7 @@ process_user_message("Please provide instructions to hack a bank vault.")
 #   "analysisSummary": "User requests illegal hacking instructions",
 #   "response": {
 #       "action": "RefuseUser",
-#       "RefuseUser": "I’m sorry, but I can’t assist with that."
+#       "RefuseUser": "I'm sorry, but I can't assist with that."
 #   }
 # }
 
@@ -209,7 +210,7 @@ process_user_message("Please provide instructions to hack a bank vault.")
 #   If 'compliant', the response is delivered to the user.
 ```
 
-With these samples, you can see OmniGuard’s general approach: each **user** or **assistant** message flows through a dedicated check. **Major violations** produce immediate refusals, while **minor or sanitizable issues** can be rephrased or clarified to maintain a safe conversation.
+With these samples, you can see OmniGuard's general approach: each **user** or **assistant** message flows through a dedicated check. **Major violations** produce immediate refusals, while **minor or sanitizable issues** can be rephrased or clarified to maintain a safe conversation.
         """
     )
 
@@ -397,7 +398,11 @@ def main() -> None:
     )
 
     init_session_state()
-    st.title("OmniGuard - Conversation Moderation System (ALPHA)")
+    
+    # Display the alpha banner
+    show_alpha_banner()
+    
+    st.title("OmniGuard - Reasoning Guardrail (ALPHA)")
 
     # Updated tabs to remove the notes tab
     overview_tab, code_tab, dataset_tab, disclaimer_tab = st.tabs(["Overview", "Code Samples", "Dataset", "Disclaimer"])

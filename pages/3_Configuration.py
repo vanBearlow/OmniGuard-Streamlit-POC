@@ -3,6 +3,7 @@ import streamlit as st
 from components.init_session_state  import init_session_state
 from prompts                        import assistant_system_prompt, omniguard_configuration
 from typing                         import Any, Dict, Optional
+from components.banner import show_alpha_banner
 # 
 
 # : Configuration State Helpers
@@ -116,9 +117,12 @@ def get_preference(email: str, pref_key: str, default: Any = None) -> Any:
 # : Streamlit Page Configuration & UI
 # Set up the page configuration
 st.set_page_config(
-    page_title="Configuration",
+    page_title="OmniGuard Configuration",
     page_icon="⚙️"
 )
+
+# Show alpha banner
+show_alpha_banner()
 
 # Initialize session state
 init_session_state()
