@@ -27,8 +27,6 @@ def handle_profile_form():
         st.warning("Please log in first to edit your profile.")
         return
 
-    # Show contributor_id
-    st.markdown(f"**Your Contributor ID:** `{contributor_id}`")
 
     supabase = get_supabase_client()
 
@@ -57,10 +55,13 @@ def handle_profile_form():
 
     st.subheader("Your Profile")
     with st.form("profile_form"):
+        # Show contributor_id
+        
         name_input    = st.text_input("Name:", value=default_info.name)
         x_input       = st.text_input("X/Twitter:", value=default_info.x)
         discord_input = st.text_input("Discord:", value=default_info.discord)
         linkedin_input= st.text_input("LinkedIn:", value=default_info.linkedin)
+        st.caption(f"**Your Contributor ID:** `{contributor_id}`")
 
         if st.form_submit_button("Save Profile"):
             # Update 'contributors' row
@@ -92,8 +93,6 @@ def main():
         auth()
         return
 
-    st.title("My Profile")
-    st.markdown("Update your personal information to be stored in the 'contributors' table.")
     handle_profile_form()
 
 if __name__ == "__main__":
