@@ -169,21 +169,25 @@ def process_omniguard_result(omniguard_result, user_prompt, context):
         try:
             parsed_response = json.loads(omniguard_raw_response)
             
-            # Validate schema structure - check for required keys
-            required_keys = ["conversation_id", "analysisSummary", "compliant", "response"]
-            for key in required_keys:
+            # Validate schema structure - check for basic required keys (always needed)
+            basic_required_keys = ["conversation_id", "analysisSummary", "compliant"]
+            for key in basic_required_keys:
                 if key not in parsed_response:
                     logger.error(f"Missing required key in OmniGuard response: {key}")
                     st.session_state["schema_violation"] = True
                     break
-                    
-            # Check for response action field
-            if "response" in parsed_response and "action" not in parsed_response["response"]:
-                logger.error("Missing 'action' field in OmniGuard response.response")
-                st.session_state["schema_violation"] = True
+            
+            # If not compliant, check for the response key
+            compliant = parsed_response.get("compliant", False)
+            if not compliant:
+                if "response" not in parsed_response:
+                    logger.error("Missing 'response' key in non-compliant OmniGuard response")
+                    st.session_state["schema_violation"] = True
+                elif "action" not in parsed_response["response"]:
+                    logger.error("Missing 'action' field in OmniGuard response.response")
+                    st.session_state["schema_violation"] = True
             
             # Extract top-level fields to store in session state
-            compliant = parsed_response.get("compliant", False)
             analysis_summary = parsed_response.get("analysisSummary", "")
             conversation_id = parsed_response.get("conversation_id", "")
             action = parsed_response.get("response", {}).get("action")
@@ -231,21 +235,25 @@ def process_omniguard_result(omniguard_result, user_prompt, context):
         try:
             assistant_check_parsed = json.loads(assistant_check)
             
-            # Validate the schema of assistant check result
-            required_keys = ["conversation_id", "analysisSummary", "compliant", "response"]
-            for key in required_keys:
+            # Validate the schema of assistant check result - check for basic required keys
+            basic_required_keys = ["conversation_id", "analysisSummary", "compliant"]
+            for key in basic_required_keys:
                 if key not in assistant_check_parsed:
                     logger.error(f"Missing required key in assistant check: {key}")
                     st.session_state["schema_violation"] = True
                     break
                     
-            # Check for response action field
-            if "response" in assistant_check_parsed and "action" not in assistant_check_parsed["response"]:
-                logger.error("Missing 'action' field in assistant check response")
-                st.session_state["schema_violation"] = True
+            # If not compliant, check for the response key
+            assistant_compliant = assistant_check_parsed.get("compliant", False)
+            if not assistant_compliant:
+                if "response" not in assistant_check_parsed:
+                    logger.error("Missing 'response' key in non-compliant assistant check")
+                    st.session_state["schema_violation"] = True
+                elif "action" not in assistant_check_parsed["response"]:
+                    logger.error("Missing 'action' field in assistant check response")
+                    st.session_state["schema_violation"] = True
             
             # Extract and store assistant check values
-            assistant_compliant = assistant_check_parsed.get("compliant", False)
             assistant_action = assistant_check_parsed.get("response", {}).get("action")
             
             # Update session state with assistant check results
