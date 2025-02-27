@@ -11,6 +11,13 @@ st.set_page_config(page_title="Leaderboard", page_icon="🏆")
 # Show alpha banner
 show_alpha_banner()
 
+# Add a refresh button in the sidebar
+with st.sidebar:
+    if st.button("Refresh"):
+        # Clear all cached data
+        st.cache_data.clear()
+        st.success("Data refreshed successfully!")
+
 @st.cache_data(ttl=300)
 def get_top_contributors():
     """
@@ -199,19 +206,20 @@ def display_leaderboard():
     Display the leaderboard with four sections:
     - Most Contributions
     - Most Agent Refusals
-    - Pending Verifications
     - Most Schema Violations
+    - Pending Verifications
     """
     
     tab1, tab2, tab3, tab4 = st.tabs([
         "📊 Most Contributions", 
         "🛑 Most Agent Refusals", 
-        "⏳ Pending Verifications",
-        "❌ Most Schema Violations"
+        "❌ Most Schema Violations",
+        "⏳ Pending Verifications"
     ])
     
     with tab1:
-        st.subheader("Top Contributors")
+        #Description of most contributions
+        st.markdown("`Users that have Interacted with OmniGuard the most.`")
         top_contributors = get_top_contributors()
         if top_contributors:
             # Ensure all required columns exist
@@ -230,7 +238,8 @@ def display_leaderboard():
             st.info("No contribution data available.")
     
     with tab2:
-        st.subheader("Top Agent Refusals")
+        #Description of agent refusals
+        st.markdown("`Users that have the most prompts that bypassed OmniGuard(User) and caused the agent to generate content that was later refused by OmniGuard(Agent).`")
         top_refusals = get_top_agent_refusals()
         if top_refusals:
             # Ensure all required columns exist
@@ -249,7 +258,28 @@ def display_leaderboard():
             st.info("No agent refusal data available.")
     
     with tab3:
-        st.subheader("Pending Verifications")
+        #Description of schema violations
+        st.markdown(" `Users that have caused OmniGaurd to return malformed responses the most.`")
+        schema_violations = get_top_schema_violations()
+        if schema_violations:
+            # Ensure all required columns exist
+            for violation in schema_violations:
+                violation.setdefault("name", "Anonymous")
+                violation.setdefault("violation_count", 0)
+                violation.setdefault("x", "")
+                violation.setdefault("discord", "")
+                violation.setdefault("linkedin", "")
+            
+            violation_df = pd.DataFrame(schema_violations)
+            violation_df = violation_df[["name", "violation_count", "x", "discord", "linkedin"]]
+            violation_df.columns = ["Contributor", "Violations", "X", "Discord", "LinkedIn"]
+            st.table(violation_df)
+        else:
+            st.info("No schema violation data available.")
+    
+    with tab4:
+        #Description of pending verifications
+        st.markdown(" `Users with pending verifications, sorted by first submission.`")
         pending_verifications = get_pending_verifications()
         if pending_verifications:
             # Ensure all required columns exist
@@ -267,25 +297,6 @@ def display_leaderboard():
             st.table(verification_df)
         else:
             st.info("No pending verifications available.")
-    
-    with tab4:
-        st.subheader("Schema Violations")
-        schema_violations = get_top_schema_violations()
-        if schema_violations:
-            # Ensure all required columns exist
-            for violation in schema_violations:
-                violation.setdefault("name", "Anonymous")
-                violation.setdefault("violation_count", 0)
-                violation.setdefault("x", "")
-                violation.setdefault("discord", "")
-                violation.setdefault("linkedin", "")
-            
-            violation_df = pd.DataFrame(schema_violations)
-            violation_df = violation_df[["name", "violation_count", "x", "discord", "linkedin"]]
-            violation_df.columns = ["Contributor", "Violations", "X", "Discord", "LinkedIn"]
-            st.table(violation_df)
-        else:
-            st.info("No schema violation data available.")
 
 def main():
     """Initialize session state and display the leaderboard."""
