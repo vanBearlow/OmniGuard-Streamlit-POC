@@ -49,7 +49,7 @@ def render_conversation_stats(session_state: Dict[str, Any]) -> None:
 
 def render_bounty() -> None:
     """Render the bounty section in an expander."""
-    with st.expander("BOUNTY", expanded=False):
+    with st.expander("BOUNTY - $1,000 USDT", expanded=False):
         st.markdown("""
         ## 🏆 Win the $1,000 USDT Bounty
         
