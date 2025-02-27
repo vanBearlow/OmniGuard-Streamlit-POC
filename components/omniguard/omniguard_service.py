@@ -215,7 +215,7 @@ def process_omniguard_result(omniguard_result, user_prompt, context):
             with st.chat_message("assistan"):
                 st.markdown(response_text)
 
-            st.session_state.messages.append({"role": "assistant", "content": response_text})
+            st.session_state.messages.append({"role": "agent", "content": response_text})
 
             # Increment turn_number and conversation_id after user violation check
             st.session_state["turn_number"] += 1
@@ -224,22 +224,22 @@ def process_omniguard_result(omniguard_result, user_prompt, context):
             upsert_conversation_turn()
             return
 
-        # *** If user is compliant, proceed to get assistant response ***
-        from components.omniguard.agent_service import fetch_assistant_response
+        # *** If user is compliant, proceed to get agent response ***
+        from components.omniguard.agent_service import fetch_agent_response
         with st.spinner("Agent..."):
-            assistant_response = fetch_assistant_response(user_prompt)
+            assistant_response = fetch_agent_response(user_prompt)
 
-        # --- ASSISTANT VIOLATION CHECK ---
+        # --- AGENT VIOLATION CHECK ---
         with st.spinner("OmniGuard (Agent)..."):
             assistant_check = omniguard_check(pending_assistant_response=assistant_response)
         try:
             assistant_check_parsed = json.loads(assistant_check)
             
-            # Validate the schema of assistant check result - check for basic required keys
+            # Validate the schema of agent check result - check for basic required keys
             basic_required_keys = ["conversation_id", "analysisSummary", "compliant"]
             for key in basic_required_keys:
                 if key not in assistant_check_parsed:
-                    logger.error(f"Missing required key in assistant check: {key}")
+                    logger.error(f"Missing required key in agent check: {key}")
                     st.session_state["schema_violation"] = True
                     break
                     
@@ -247,21 +247,21 @@ def process_omniguard_result(omniguard_result, user_prompt, context):
             assistant_compliant = assistant_check_parsed.get("compliant", False)
             if not assistant_compliant:
                 if "response" not in assistant_check_parsed:
-                    logger.error("Missing 'response' key in non-compliant assistant check")
+                    logger.error("Missing 'response' key in non-compliant agent check")
                     st.session_state["schema_violation"] = True
                 elif "action" not in assistant_check_parsed["response"]:
-                    logger.error("Missing 'action' field in assistant check response")
+                    logger.error("Missing 'action' field in agent check response")
                     st.session_state["schema_violation"] = True
             
-            # Extract and store assistant check values
+            # Extract and store agent check values
             assistant_action = assistant_check_parsed.get("response", {}).get("action")
             
-            # Update session state with assistant check results
+            # Update session state with agent check results
             st.session_state["compliant"] = assistant_compliant
             st.session_state["action"] = assistant_action
             
         except (json.JSONDecodeError, TypeError) as e:
-            logger.error(f"Failed to parse assistant check response: {e}")
+            logger.error(f"Failed to parse agent check response: {e}")
             st.session_state["schema_violation"] = True
             assistant_compliant = False
             # Set default values in session state for error case
@@ -272,7 +272,7 @@ def process_omniguard_result(omniguard_result, user_prompt, context):
         if assistant_violates:
             response_text = (
                 assistant_check_parsed.get("response", {}).get("RefuseAssistant") 
-                or "Assistant response blocked for safety reasons."
+                or "Agent response blocked for safety reasons."
             )
         else:
             response_text = assistant_response

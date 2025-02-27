@@ -11,20 +11,20 @@ sitename = "OmniGuard"
 
 def verify_configuration() -> bool:
     """
-    Verify that essential configuration values (like the assistant system prompt) are set
+    Verify that essential configuration values (like the agent system prompt) are set
     in session state.
 
     Returns:
         bool: True if 'agent_system_prompt' is present, False otherwise.
     """
     if not st.session_state.get("agent_system_prompt"):
-        logger.error("Assistant system prompt is missing or empty")
+        logger.error("Agent system prompt is missing or empty")
         return False
     return True
 
-def fetch_assistant_response(prompt_text: str) -> str:
+def fetch_agent_response(prompt_text: str) -> str:
     """
-    Fetch the assistant's response using the designated model. The entire raw API response
+    Fetch the agent's response using the designated model. The entire raw API response
     is stored in session state (for future reference like calculating costs).
 
     Note:
@@ -32,22 +32,22 @@ def fetch_assistant_response(prompt_text: str) -> str:
         session state; it is retained for interface consistency.
 
     Parameters:
-        prompt_text (str): The prompt text for querying the assistant.
+        prompt_text (str): The prompt text for querying the agent.
 
     Returns:
-        str: The assistant's response extracted from the API, or an error message in case of issues.
+        str: The agent's response extracted from the API, or an error message in case of issues.
     """
     try:
         client = get_openai_client()
 
         if not verify_configuration():
-            raise Exception("Invalid Assistant configuration state")
+            raise Exception("Invalid Agent configuration state")
 
         main_prompt = st.session_state.get("agent_system_prompt")
         if not main_prompt:
-            raise Exception("Assistant system prompt is missing")
+            raise Exception("Agent system prompt is missing")
 
-        # Determine role based on model type for clarity in assistant messages
+        # Determine role based on model type for clarity in agent messages
         role = "system" if st.session_state.selected_agent_model.startswith(("o1", "o3")) else "developer"
         agent_messages = [{"role": role, "content": main_prompt}]
         agent_messages += [
@@ -82,21 +82,21 @@ def fetch_assistant_response(prompt_text: str) -> str:
         # Store the complete API response for potential further analysis (e.g. cost calculations)
         st.session_state.assistant_raw_api_response = response
 
-        # Extract and return the assistant's text output from the API response
+        # Extract and return the agent's text output from the API response
         agent_output = response.choices[0].message.content
         return agent_output
 
     except RateLimitError:
-        logger.exception("Rate limit exceeded during assistant response fetch")
-        return ("Assistant temporarily unavailable due to rate limiting. "
+        logger.exception("Rate limit exceeded during agent response fetch")
+        return ("Agent temporarily unavailable due to rate limiting. "
                 "Please try again in a moment.")
     except APIError:
-        logger.exception("OpenAI API Error encountered during assistant response fetch")
-        return "Assistant temporarily unavailable. Please try again."
+        logger.exception("OpenAI API Error encountered during agent response fetch")
+        return "Agent temporarily unavailable. Please try again."
     except requests.exceptions.RequestException:
-        logger.exception("Network error encountered during assistant response fetch")
-        return ("Unable to reach assistant due to network issues. "
+        logger.exception("Network error encountered during agent response fetch")
+        return ("Unable to reach agent due to network issues. "
                 "Please check your connection.")
     except Exception:
-        logger.exception("Unexpected error during assistant response fetch")
+        logger.exception("Unexpected error during agent response fetch")
         return "An unexpected error occurred. Please try again."

@@ -38,7 +38,7 @@ def get_model_params(model_name, is_omniguard=False):
     Get appropriate parameters based on model type.
 
     For OmniGuard, references a `selected_reasoning` from session state.
-    For the assistant, references either `assistant_reasoning` or `temperature`,
+    For the agent, references either `agent_reasoning` or `temperature`,
     depending on the model type.
 
     Args:
@@ -54,9 +54,9 @@ def get_model_params(model_name, is_omniguard=False):
     if is_omniguard:
         params["reasoning_effort"] = st.session_state.get("selected_reasoning", "low")
     else:
-        # For assistant, check model type
+        # For agent, check model type
         if model_name.startswith(("o1", "o3")):
-            params["reasoning_effort"] = st.session_state.get("assistant_reasoning", "low")
+            params["reasoning_effort"] = st.session_state.get("agent_reasoning", "low")
         else:
             params["temperature"] = st.session_state.get("temperature", 1.0)
     

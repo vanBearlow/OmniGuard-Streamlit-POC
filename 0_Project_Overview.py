@@ -349,7 +349,7 @@ def process_user_message(user_input):
     user_check_result = omniguard_check()
 
     # 3) If user is compliant, proceed to generate assistant response
-    agent_output = fetch_assistant_response(user_input)
+    agent_output = fetch_agent_response(user_input)
 
     # 4) OmniGuard checks the assistant response
     assistant_check_result = omniguard_check(pending_assistant_response=agent_output)

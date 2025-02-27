@@ -19,7 +19,7 @@ def handle_feedback() -> None:
             
             # Store which feedback source triggered the form
             if "assistant_feedback" in triggered_key:
-                st.session_state.feedback_source = "assistant"
+                st.session_state.feedback_source = "agent"
             else:
                 st.session_state.feedback_source = "omniguard"
 #
@@ -39,7 +39,7 @@ def display_report_form(form_key: str = "report_violation_form") -> None:
     with st.form(form_key):
         st.write("Submit for Human Verification")
         
-        violation_sources = ["User", "Assistant"]
+        violation_sources = ["User", "Agent"]
         classification_opts = ["True", "False"]
         
         # Form elements with vertical alignment
@@ -144,7 +144,7 @@ def display_debug_expanders(
                     key        = f"agent_feedback_{conversation_id}_{turn_number}"
                 )
                 
-                # Show report form if feedback was negative and came from Assistant
+                # Show report form if feedback was negative and came from Agent
                 if (st.session_state.get("show_report_violation_form", False) and 
                     st.session_state.get("feedback_source") == "agent"):
                     display_report_form(form_key=f"agent_report_form_{conversation_id}_{turn_number}")

@@ -47,9 +47,9 @@ def display_conversation(conversation: Dict[str, Any]) -> None:
             violation_sources = review_data.get("violation_source", [])
             suggested_compliant = review_data.get("suggested_compliant_classification", None)
             if violation_sources:
-                if "User" in violation_sources and "Assistant" in violation_sources:
+                if "User" in violation_sources and "Agent" in violation_sources:
                     st.write(
-                        f"Both User and Assistant content should be classified as Compliant = {suggested_compliant}"
+                        f"Both User and Agent content should be classified as Compliant = {suggested_compliant}"
                     )
                 else:
                     for source in violation_sources:
@@ -71,7 +71,7 @@ def display_conversation(conversation: Dict[str, Any]) -> None:
             with col2:
                 st.metric("User Violations", votes.get("user_violations", 0))
             with col3:
-                st.metric("Assistant Violations", votes.get("assistant_violations", 0))
+                st.metric("Agent Violations", votes.get("assistant_violations", 0))
             with col4:
                 st.metric("Compliant Votes", votes.get("compliant_votes", 0))
 
@@ -107,7 +107,7 @@ def display_conversation(conversation: Dict[str, Any]) -> None:
                 st.warning("Please log in to cast a vote.")
             else:
                 user_violation: bool      = st.checkbox("User Content Causes Violation", value=False)
-                assistant_violation: bool = st.checkbox("Assistant Content Causes Violation", value=False)
+                assistant_violation: bool = st.checkbox("Agent Content Causes Violation", value=False)
                 safe_vote: bool           = st.checkbox("All Content Is Compliant", value=False)
                 reviewer_notes: str       = st.text_area("Reviewer's Analysis Notes")
 

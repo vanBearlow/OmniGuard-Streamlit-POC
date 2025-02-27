@@ -53,36 +53,6 @@ def save_user_config(email: str, config: Dict[str, Any]) -> None:
     init_config_state()
     st.session_state.user_configs[email] = config
 
-def save_api_key(email: str, key_type: str, api_key: str) -> None:
-    """
-    Save an API key to the user's configuration.
-    
-    Args:
-        email (str): The user's email.
-        key_type (str): The type/name of the API key.
-        api_key (str): The API key.
-    """
-    config = get_user_config(email)
-    if 'api_keys' not in config:
-        config['api_keys'] = {}
-    config['api_keys'][key_type] = api_key
-    save_user_config(email, config)
-    st.toast(f"{key_type} API key saved successfully")
-
-def get_stored_api_key(email: str, key_type: str) -> Optional[str]:
-    """
-    Retrieve a stored API key from the user's configuration.
-    
-    Args:
-        email (str): The user's email.
-        key_type (str): The type/name of the API key.
-    
-    Returns:
-        Optional[str]: The API key if present, else None.
-    """
-    config = get_user_config(email)
-    return config.get('api_keys', {}).get(key_type)
-
 def save_preference(email: str, pref_key: str, pref_value: Any) -> None:
     """
     Save a user preference to the configuration.
@@ -137,7 +107,7 @@ with st.form("configuration_form"):
         st.subheader("Model Settings")
         #st.write("`OmniGuard model is fixed to o3-mini-2025-01-31.`")
         selected_omniguard_model = st.selectbox(
-            "Select OmniGuard model `temporarily added o1`",
+            "Select OmniGuard model",
             options=["o1-2024-12-17", "o3-mini-2025-01-31"],
             index=1,
             key="omniguard_model_select"
@@ -164,11 +134,11 @@ with st.form("configuration_form"):
             help="Enter your OmniGuard configuration settings."
         )
     
-    # Assistant Configuration Section
-    with st.expander("Assistant", expanded=False):
+    # Agent Configuration Section
+    with st.expander("Agent", expanded=False):
         st.subheader("Model Settings")
         selected_agent_model = st.selectbox(
-            "Select Assistant model",
+            "Select Agent Model",
             options=["gpt-4o-2024-08-06", "gpt-4o-mini-2024-07-18", "o1-2024-12-17", "o3-mini-2025-01-31"],
             index=0,
             key="assistant_model_select"
@@ -176,13 +146,13 @@ with st.form("configuration_form"):
         st.session_state.selected_agent_model = selected_agent_model
 
         if selected_agent_model.startswith(("o1", "o3")):
-            assistant_reasoning = st.selectbox(
+            agent_reasoning = st.selectbox(
                 "Select reasoning effort",
                 options=["low", "medium", "high"],
                 index=0,
                 key="assistant_reasoning_select"
             )
-            st.session_state.assistant_reasoning = assistant_reasoning
+            st.session_state.agent_reasoning = agent_reasoning
         else:
             temperature = st.number_input(
                 "Temperature",
@@ -195,7 +165,7 @@ with st.form("configuration_form"):
             )
             st.session_state.temperature = temperature
 
-        updated_assistant_prompt = st.text_area(
+        updated_agent_prompt = st.text_area(
             "System Prompt",
             value=st.session_state.agent_system_prompt,
             height=150,
@@ -217,12 +187,12 @@ with st.form("configuration_form"):
     if submitted:
         # Update the session state with the latest values from the form
         st.session_state.omniguard_configuration   = updated_omniguard_config
-        st.session_state.agent_system_prompt   = updated_assistant_prompt
+        st.session_state.agent_system_prompt   = updated_agent_prompt
         
         # Confirmation of the updates
         if (
             st.session_state.omniguard_configuration == updated_omniguard_config and
-            st.session_state.agent_system_prompt == updated_assistant_prompt
+            st.session_state.agent_system_prompt == updated_agent_prompt
         ):
             st.toast("Configuration saved successfully!")
         else:
