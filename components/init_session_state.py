@@ -1,5 +1,5 @@
 import streamlit as st
-from prompts import assistant_system_prompt, omniguard_configuration
+from components.prompts import assistant_system_prompt, omniguard_configuration
 
 def ensure_config_initialized():
     """Ensure configuration values are properly initialized."""

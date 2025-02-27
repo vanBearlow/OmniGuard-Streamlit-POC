@@ -204,7 +204,7 @@ def render_system_flow() -> None:
 """
         )
 
-        from prompts import omniguard_configuration
+        from components.prompts import omniguard_configuration
 
         st.code(omniguard_configuration, language="xml")
 

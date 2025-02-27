@@ -1,7 +1,7 @@
 # : Imports
 import streamlit as st
 from components.init_session_state  import init_session_state
-from prompts                        import assistant_system_prompt, omniguard_configuration
+from components.prompts                        import assistant_system_prompt, omniguard_configuration
 from typing                         import Any, Dict, Optional
 from components.banner import show_alpha_banner
 # 

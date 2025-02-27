@@ -9,7 +9,7 @@ from typing                 import Callable, Dict, Any, Optional
 from dataclasses            import dataclass, asdict
 from functools              import wraps
 from st_supabase_connection import SupabaseConnection
-from prompts                import omniguard_configuration, assistant_system_prompt
+from components.prompts                import omniguard_configuration, assistant_system_prompt
 
 @dataclass
 class SessionDefaults:
