@@ -124,14 +124,14 @@ def upsert_conversation_turn() -> None:
                 "content": st.session_state.omniguard_output_message
             })
 
-    verifier = "pending" if st.session_state.get("submitted_for_verification") else "omniguard"
+    verifier = "pending" if st.session_state.get("submitted_for_review") else "omniguard"
 
     row_data = {
         "id": st.session_state.conversation_id,
         "conversation": {"messages": messages},
         "metadata": _build_metadata_json(),
         "verifier": verifier,
-        "submitted_for_verification": st.session_state.get("submitted_for_verification", False),
+        "submitted_for_review": st.session_state.get("submitted_for_review", False),
         "contributor_id": st.session_state.get("contributor_id"),
         "schema_violation": st.session_state.get("schema_violation", False),
         "compliant": st.session_state.get("compliant"),

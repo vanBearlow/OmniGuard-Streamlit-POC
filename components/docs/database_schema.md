@@ -33,7 +33,7 @@ Stores conversation data between users and the system.
 | updated_at | timestamp with time zone | YES | now() | When the record was last updated |
 | compliant | boolean | YES | null | Whether the conversation is compliant with guidelines |
 | verifier | text | YES | null | Who verified the conversation ('human', 'omniguard', 'pending') |
-| submitted_for_verification | boolean | YES | null | Whether the conversation has been submitted for verification |
+| submitted_for_review | boolean | YES | null | Whether the conversation has been submitted for review |
 | contributor_id | uuid | YES | null | ID of the contributor who submitted the conversation |
 | name | text | YES | null | Name associated with this interaction |
 | x | text | YES | null | X (Twitter) handle associated with this interaction |

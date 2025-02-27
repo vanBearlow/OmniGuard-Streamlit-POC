@@ -4,7 +4,7 @@ Chat Interface Module
 This module implements the main chat interface for OmniGuard, handling:
 - User input processing and validation
 - Message history display and management  
-- OmniGuard security checks and verification
+- OmniGuard security checks and review
 - Chat session state management
 - Debug information display
 """

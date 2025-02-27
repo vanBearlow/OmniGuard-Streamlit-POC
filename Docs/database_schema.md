@@ -13,7 +13,7 @@ The `interactions` table stores information about user interactions and conversa
 | updated_at | timestamptz | Timestamp when the interaction was last updated |
 | compliant | bool | Flag indicating whether the interaction is compliant with policies |
 | verifier | text | Identifier or name of the entity that verified the interaction |
-| submitted_for_verification | bool | Flag indicating whether the interaction has been submitted for verification |
+| submitted_for_review | bool | Flag indicating whether the interaction has been submitted for review |
 | contributor_id | uuid | Unique identifier for the contributor/user |
 | name | text | Name associated with the interaction or contributor |
 | x | text | X (Twitter) handle or identifier |

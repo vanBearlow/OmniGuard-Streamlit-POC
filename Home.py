@@ -174,7 +174,7 @@ def render_dataset() -> None:
                     "Compliant Interactions",
                     "Human Verified",
                     "OmniGuard Verified",
-                    "Pending Verification",
+                    "Pending Review",
                     "Non-Compliant Interactions",
                 ],
                 "Count": [
@@ -327,7 +327,7 @@ def render_key_features() -> None:
         
         ### Research Infrastructure
         - **Structured dataset collection** of safety interactions
-        - **Classification outcomes** with human verification system
+        - **Classification outcomes** with human review system
         - **Attack pattern documentation** for evolving threat model development
         
         ### Implementation Architecture
@@ -432,7 +432,7 @@ def render_dataset_applications() -> None:
                 <th>updated_at</th>
                 <th>compliant</th>
                 <th>verifier</th>
-                <th>submitted_for_verification</th>
+                <th>submitted_for_review</th>
                 <th>contributor_id</th>
                 <th>name</th>
                 <th>x</th>
@@ -545,7 +545,7 @@ def render_model_training_insights() -> None:
             - Which examples are most valuable for model learning?
             - Can models generalize to unseen attack types?
             
-            > **Pro Tip:** The dataset includes human verification, allowing you to train with high-confidence examples.
+            > **Pro Tip:** The dataset includes human review, allowing you to train with high-confidence examples.
             """
         )
 

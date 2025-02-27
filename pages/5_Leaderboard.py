@@ -3,6 +3,8 @@ import pandas as pd
 from components.chat.session_management import get_supabase_client
 from components.init_session_state import init_session_state
 from components.banner import show_alpha_banner
+from datetime import datetime
+import pytz
 
 st.set_page_config(page_title="Leaderboard", page_icon="🏆")
 
@@ -97,12 +99,12 @@ def get_pending_verifications():
     Get contributors with pending verifications sorted by created_at.
     
     Returns:
-        list: A list of dictionaries containing contributor information and pending verification counts.
+        list: A list of dictionaries containing contributor information and pending review counts.
     """
     supabase = get_supabase_client()
     try:
-        # Get all interactions with submitted_for_verification=True and verifier='pending'
-        interactions = supabase.table("interactions").select("*").eq("submitted_for_verification", True).eq("verifier", "pending").order("created_at", desc=True).execute().data
+        # Get all interactions with submitted_for_review=True and verifier='pending'
+        interactions = supabase.table("interactions").select("*").eq("submitted_for_review", True).eq("verifier", "pending").order("created_at", desc=True).execute().data
         
         # Group by contributor_id and track the most recent created_at
         contributor_info = {}
@@ -130,25 +132,82 @@ def get_pending_verifications():
                 contributor["x"] = contributor_info.get("x") or ""
                 contributor["discord"] = contributor_info.get("discord") or ""
                 contributor["linkedin"] = contributor_info.get("linkedin") or ""
+            
+            # Format the timestamp to be more readable and convert to EST
+            if contributor["latest_verification"]:
+                try:
+                    # Parse the ISO format timestamp
+                    dt = datetime.fromisoformat(contributor["latest_verification"].replace("Z", "+00:00"))
+                    
+                    # Convert from UTC to EST
+                    est_timezone = pytz.timezone('US/Eastern')
+                    dt = dt.replace(tzinfo=pytz.UTC).astimezone(est_timezone)
+                    
+                    # Format with timezone indicator
+                    contributor["latest_verification"] = dt.strftime("%Y-%m-%d %H:%M:%S %Z")
+                except (ValueError, AttributeError):
+                    pass  # Keep original format if parsing fails
         
         return contributors
     except Exception as e:
         st.error(f"Error fetching pending verifications: {e}")
         return []
 
+@st.cache_data(ttl=300)
+def get_top_schema_violations():
+    """
+    Get contributors with the most schema violations.
+    
+    Returns:
+        list: A list of dictionaries containing contributor information and schema violation counts.
+    """
+    supabase = get_supabase_client()
+    try:
+        # Get all interactions with schema_violation=True
+        interactions = supabase.table("interactions").select("*").eq("schema_violation", True).execute().data
+        
+        # Count interactions per contributor
+        contributor_counts = {}
+        for interaction in interactions:
+            contributor_id = interaction.get("contributor_id")
+            if contributor_id:
+                if contributor_id not in contributor_counts:
+                    contributor_counts[contributor_id] = {"count": 0, "contributor_id": contributor_id}
+                contributor_counts[contributor_id]["count"] += 1
+        
+        # Sort by count (descending) and take top 10
+        top_contributors = sorted(contributor_counts.values(), key=lambda x: x["count"], reverse=True)[:10]
+        
+        # Fetch contributor info for each top contributor
+        for contributor in top_contributors:
+            profile = supabase.table("contributors").select("*").eq("contributor_id", contributor["contributor_id"]).execute()
+            if profile.data:
+                contributor_info = profile.data[0]
+                contributor["name"] = contributor_info.get("name") or "Anonymous"
+                contributor["x"] = contributor_info.get("x") or ""
+                contributor["discord"] = contributor_info.get("discord") or ""
+                contributor["linkedin"] = contributor_info.get("linkedin") or ""
+            contributor["violation_count"] = contributor.pop("count")  # Rename for clarity
+        
+        return top_contributors
+    except Exception as e:
+        st.error(f"Error fetching schema violations: {e}")
+        return []
+
 def display_leaderboard():
     """
-    Display the leaderboard with three sections:
+    Display the leaderboard with four sections:
     - Most Contributions
     - Most Agent Refusals
     - Pending Verifications
+    - Most Schema Violations
     """
-    st.title("🏆 Leaderboard")
     
-    tab1, tab2, tab3 = st.tabs([
+    tab1, tab2, tab3, tab4 = st.tabs([
         "📊 Most Contributions", 
         "🛑 Most Agent Refusals", 
-        "⏳ Pending Verifications"
+        "⏳ Pending Verifications",
+        "❌ Most Schema Violations"
     ])
     
     with tab1:
@@ -194,13 +253,13 @@ def display_leaderboard():
         pending_verifications = get_pending_verifications()
         if pending_verifications:
             # Ensure all required columns exist
-            for verification in pending_verifications:
-                verification.setdefault("name", "Anonymous")
-                verification.setdefault("pending_count", 0)
-                verification.setdefault("latest_verification", "")
-                verification.setdefault("x", "")
-                verification.setdefault("discord", "")
-                verification.setdefault("linkedin", "")
+            for review in pending_verifications:
+                review.setdefault("name", "Anonymous")
+                review.setdefault("pending_count", 0)
+                review.setdefault("latest_verification", "")
+                review.setdefault("x", "")
+                review.setdefault("discord", "")
+                review.setdefault("linkedin", "")
             
             verification_df = pd.DataFrame(pending_verifications)
             verification_df = verification_df[["name", "pending_count", "latest_verification", "x", "discord", "linkedin"]]
@@ -208,6 +267,25 @@ def display_leaderboard():
             st.table(verification_df)
         else:
             st.info("No pending verifications available.")
+    
+    with tab4:
+        st.subheader("Schema Violations")
+        schema_violations = get_top_schema_violations()
+        if schema_violations:
+            # Ensure all required columns exist
+            for violation in schema_violations:
+                violation.setdefault("name", "Anonymous")
+                violation.setdefault("violation_count", 0)
+                violation.setdefault("x", "")
+                violation.setdefault("discord", "")
+                violation.setdefault("linkedin", "")
+            
+            violation_df = pd.DataFrame(schema_violations)
+            violation_df = violation_df[["name", "violation_count", "x", "discord", "linkedin"]]
+            violation_df.columns = ["Contributor", "Violations", "X", "Discord", "LinkedIn"]
+            st.table(violation_df)
+        else:
+            st.info("No schema violation data available.")
 
 def main():
     """Initialize session state and display the leaderboard."""

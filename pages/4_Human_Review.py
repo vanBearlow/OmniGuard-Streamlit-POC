@@ -1,27 +1,37 @@
+"""Human Review dashboard for reviewing flagged conversations.
+
+This module provides an interface for human reviewers to verify conversations
+that have been flagged by the system. Reviewers can vote on whether content
+violates guidelines and add analysis notes.
+"""
+
 import streamlit as st
 from components.chat.session_management import get_supabase_client
 from typing                             import List, Dict, Any
 from components.init_session_state import init_session_state
 from components.banner import show_alpha_banner
 
-st.set_page_config(page_title="Human Verification", page_icon="🔍")
+st.set_page_config(page_title="Human Review", page_icon="🔍")
 
 # Show alpha banner
 show_alpha_banner()
 
 
 def load_flagged_conversations() -> List[Dict[str, Any]]:
-    """
-    Load all flagged conversations that have been submitted for verification.
-    We rely on 'submitted_for_verification' for filtering,
-    and 'verifier' to check final verification status.
+    """Load all flagged conversations submitted for review.
+    
+    Retrieves conversations marked with 'submitted_for_review' flag
+    from the database. Uses 'verifier' field to check review status.
+    
+    Returns:
+        List of conversation dictionaries containing all metadata.
     """
     try:
         supabase = get_supabase_client()
         query = (
             supabase.table("interactions")
             .select("*")
-            .eq("submitted_for_verification", True)
+            .eq("submitted_for_review", True)
         )
         res = query.execute()
         return res.data or []
@@ -31,9 +41,14 @@ def load_flagged_conversations() -> List[Dict[str, Any]]:
 
 
 def display_conversation(conversation: Dict[str, Any]) -> None:
-    """
-    Display a single flagged conversation and allow for human vote-based review.
-    Enforces one-vote-per-user by checking if user's contributor_id is in the 'voters' list.
+    """Display a flagged conversation with review interface.
+    
+    Shows conversation details, report information, and provides
+    a voting interface for human reviewers to classify content.
+    Enforces one-vote-per-user policy.
+    
+    Args:
+        conversation: Dictionary containing conversation data and metadata
     """
     st.markdown(f"**Conversation ID:** `{conversation['id']}`")
 
@@ -65,7 +80,7 @@ def display_conversation(conversation: Dict[str, Any]) -> None:
         votes: Dict[str, Any] = meta_json.get("votes", {})
         if votes:
             st.markdown("**Current Votes:**")
-            col1, col2, col3, col4 = st.columns(4)
+            col1, col2, col3, col4, col5 = st.columns(5)
             with col1:
                 st.metric("Total Votes", f"{votes.get('count', 0)}/100")
             with col2:
@@ -73,6 +88,8 @@ def display_conversation(conversation: Dict[str, Any]) -> None:
             with col3:
                 st.metric("Agent Violations", votes.get("assistant_violations", 0))
             with col4:
+                st.metric("Agent Refusals", votes.get("agent_refusals", 0))
+            with col5:
                 st.metric("Compliant Votes", votes.get("compliant_votes", 0))
 
             verifier = conversation.get("verifier", "pending")
@@ -83,7 +100,7 @@ def display_conversation(conversation: Dict[str, Any]) -> None:
             elif verifier == "omniguard":
                 st.info("This conversation was verified by OmniGuard.")
             else:
-                st.warning("This conversation is pending human verification.")
+                st.warning("This conversation is pending human review.")
     # --- END REPORT SECTION ---
 
     # --- MESSAGES SECTION ---
@@ -185,18 +202,20 @@ def display_conversation(conversation: Dict[str, Any]) -> None:
 
 
 def main() -> None:
-    """
-    Main function to render the Human Verification Dashboard.
+    """Render the Human Review Dashboard.
+    
+    Displays a list of conversations flagged for review and
+    provides an interface for reviewers to analyze and vote on them.
     """
     with st.sidebar:
-        st.markdown("# Human Verification Dashboard")
+        st.markdown("# Human Review Dashboard")
         st.info("Review interactions flagged for potential errors.")
         if st.button("Refresh Dashboard"):
             st.rerun()
 
     conversations = load_flagged_conversations()
     if not conversations:
-        st.info("No conversations require verification at this time.")
+        st.info("No conversations require review at this time.")
     else:
         for conv in conversations:
             display_conversation(conv)

@@ -26,7 +26,7 @@ def handle_feedback() -> None:
 
 # *** REPORT FORM COMPONENTS ***
 def display_report_form(form_key: str = "report_violation_form") -> None:
-    """Display human verification report form with structured input fields.
+    """Display human review report form with structured input fields.
     
     Args:
         form_key: Unique key for the form to avoid duplicate form errors
@@ -37,7 +37,7 @@ def display_report_form(form_key: str = "report_violation_form") -> None:
     - Reporter comments (text area)
     """
     with st.form(form_key):
-        st.write("Submit for Human Verification")
+        st.write("Submit for Human Review")
         
         violation_sources = ["User", "Agent"]
         classification_opts = ["True", "False"]
@@ -57,7 +57,7 @@ def display_report_form(form_key: str = "report_violation_form") -> None:
 
         if st.form_submit_button("Submit"):
             # Store review data with aligned dictionary formatting
-            st.session_state["submitted_for_verification"] = True
+            st.session_state["submitted_for_review"] = True
             st.session_state["review_data"]           = {
                 "violation_source": violation_source,
                 "suggested_compliant_classification": suggested_classification == "True",
