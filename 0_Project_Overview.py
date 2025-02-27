@@ -8,173 +8,6 @@ from components.chat.session_management import get_supabase_client
 from components.init_session_state import init_session_state
 
 
-def render_what_is_omniguard() -> None:
-    """Render a Q&A section describing what OmniGuard is.
-
-    This function uses an expander in Streamlit to present an
-    introduction to OmniGuard. It provides an overview of its
-    purpose and key benefits, explaining how it intelligently
-    moderates LLM interactions.
-    """
-    with st.expander("What is OmniGuard?"):
-        st.markdown(
-            """
-        ## What is OmniGuard?
-        
-OmniGuard is a **reasoning-based guardrail** for text-based LLM interactions. 
-Unlike traditional safety systems that simply block content, OmniGuard:
-
-- Evaluates each message against configurable safety rules
-- Makes intelligent decisions based on context and intent
-- Probes user for clarification in ambiguous cases
-- Sanitizes minor assistant violations when possible
-- Preserves meaningful dialogue while maintaining safety
-
-OmniGuard operates as an intelligent safety layer between users and AI assistants, 
-ensuring interactions remain both productive and secure.
-
-> **Note:** This is not intended to be a full AI security solution; rather, it is 
-designed to effectively protect wrappers and agents from most attacks without 
-decreasing the performance.
-"""
-        )
-
-
-def render_how_different() -> None:
-    """Render a Q&A section highlighting OmniGuard's unique features.
-
-    This function presents details about how OmniGuard differs from
-    other guardrail or content moderation systems. It explains
-    OmniGuard's contextual understanding, intelligent responses,
-    and configurable protection mechanisms.
-    """
-    with st.expander("How is OmniGuard different from other Guardrails?"):
-        st.markdown(
-            """
-        ## How is OmniGuard different from typical solutions?
-        
-Unlike traditional content filters that use simple pattern matching or keyword 
-detection, OmniGuard:
-
-### 1. Uses Contextual Understanding
-OmniGuard evaluates the full context of a conversation, not just isolated messages. 
-This allows it to distinguish between:
-- Harmful content vs. educational discussions about harmful topics
-- Genuine requests vs. attempts to manipulate the system
-- Accidental violations vs. deliberate attacks
-
-### 2. Provides Intelligent Responses
-Instead of simply blocking content, OmniGuard can:
-- Sanitize minor violations to maintain conversation flow
-- Request clarification when user intent is ambiguous
-- Provide helpful refusals that explain why certain content can't be processed
-
-### 3. Offers Configurable Protection
-OmniGuard's rule system can be tailored to your specific needs:
-- Content Moderation (CM): Control for hate speech, explicit content, etc.
-- Data Leakage Prevention (DLP): Protect sensitive information
-- Adversarial Attack Protection (AA): Defend against prompt injections and 
-  system manipulations
-"""
-        )
-
-
-def render_ai_security_help() -> None:
-    """Render a Q&A section about how OmniGuard benefits AI security researchers.
-
-    This function describes the ways OmniGuard contributes to
-    reducing the attack surface, creating new research opportunities,
-    and documenting evolving threats in AI safety.
-    """
-    with st.expander("How does OmniGuard help AI Security Researcher?"):
-        st.markdown(
-            """
-    ## How does OmniGuard help AI Security Researchers?
-    
-OmniGuard provides valuable tools and data for AI security research:
-
-### 1. Reduces Attack Surface
-- Intercepts and neutralizes prompt injection attempts
-- Prevents jailbreaking techniques that bypass safety measures
-- Blocks data exfiltration and sensitive information leakage
-
-### 2. Creates Research Opportunities
-- Collects anonymized data on attack patterns and safety challenges
-- Enables the development of better safety mechanisms
-- Provides an open dataset for researchers and developers
-
-### 3. Documents Evolving Threats
-- Categorizes and tracks emerging attack patterns
-- Maps the landscape of AI safety challenges
-- Helps prioritize research efforts based on real-world threats
-
-### 4. Future Research Directions
-OmniGuard supports advancing AI safety through:
-- **Open Safety Research Data**: Providing freely accessible datasets
-- **Multimodal Safety Expansion**: Extending beyond text to images, audio, and video
-- **Model Distillation**: Creating smaller, more efficient safety models
-"""
-        )
-
-
-def render_who_should_use() -> None:
-    """Render a Q&A section describing OmniGuard's target audience.
-
-    This function also explains how OmniGuard fits into an AI production
-    pipeline by illustrating its role in safeguarding interactions
-    before and after LLM processing.
-    """
-    with st.expander("Who should use OmniGuard & where does it fit in an AI production pipeline?"):
-        st.markdown(
-            """
-        ## Who should use OmniGuard & where does it fit in an AI production pipeline?
-        
-### Ideal Users of OmniGuard
-
-OmniGuard is particularly valuable for:
-
-1. **LLM Application Developers**
-   - Building consumer-facing AI products
-   - Creating enterprise AI assistants
-   - Developing educational or research LLM tools
-
-2. **AI Safety Teams**
-   - Responsible for securing AI systems
-   - Monitoring for emerging attack patterns
-   - Testing and improving security measures
-
-3. **Research Organizations**
-   - Studying AI safety and alignment
-   - Developing improved moderation techniques
-   - Building datasets of adversarial examples
-
-4. **Enterprise IT Security**
-   - Protecting company data and systems
-   - Preventing prompt injection attacks
-   - Ensuring compliance with security policies
-
-### Where OmniGuard Fits in an AI Production Pipeline
-
-OmniGuard serves as a critical safety layer in the AI interaction pipeline:
-
-```
-[User Input] → [OmniGuard Check] → [LLM Processing] → [OmniGuard Check] → [User Response]
-   |                 |                               |                 |
-   |                 ↓                               |                 ↓
-   |          [Safety Validation]                    |          [Safety Validation]
-   |                 |                               |                 |
-   |                 ↓                               |                 ↓
-   |          [If Non-Compliant]                     |          [If Non-Compliant]
-   |                 |                               |                 ↓
-   └──────────> [Refusal] <───────────────────────────────────── [Refusal]
-```
-
-This creates a comprehensive safety envelope around your AI system, 
-protecting both the model and users.
-"""
-        )
-
-
 def render_system_flow() -> None:
     """Render an explanation of OmniGuard's system flow and configuration details.
 
@@ -293,105 +126,107 @@ Each rule group includes:
         )
 
 
-def render_make_your_own() -> None:
-    """Render instructions on how to implement OmniGuard in custom applications.
-
-    This function provides code snippets and explanations for integrating
-    OmniGuard checks into various stages of an LLM interaction workflow,
-    from user message intake to assistant response validation.
-    """
-    with st.expander("How can I create my own OmniGuard implementation?"):
-        st.markdown(
-            """
-        ## How can I create my own OmniGuard implementation?
-        
-Implementing OmniGuard in your own applications is straightforward:
-
-### 1. Basic Implementation
-
-**User Flow**:
-```python
-def process_user_message(user_input):
-    # 1) Store user input in conversation state
-    session_state["messages"].append({"role": "user", "content": user_input})
-
-    # 2) OmniGuard checks user input
-    user_check_result = omniguard_check()
-
-    # 3) If user_check_result.compliant == False:
-    #    -> "RefuseUser", store refusal in message history
-    #    -> upsert conversation turn (for record) and return
-    # 4) Otherwise, continue to fetch assistant response
-```
-
-**OmniGuard Processing**:
-```python
-def process_omniguard_result(omniguard_raw_response):
-    parsed_response = json.loads(omniguard_raw_response)
-    if not parsed_response["compliant"]:
-        # Violating content
-        refusal_message = parsed_response["response"]["RefuseUser"]
-        # Add refusal to conversation
-        session_state["messages"].append({"role": "assistant", "content": refusal_message})
-        # upsert_conversation_turn()
-        return
-    # else handle compliant content
-```
-
-### 2. Handling Compliant Requests
-
-```python
-def process_user_message(user_input):
-    # 1) Append user input to conversation state
-    session_state["messages"].append({"role": "user", "content": user_input})
-
-    # 2) OmniGuard checks user input
-    user_check_result = omniguard_check()
-
-    # 3) If user is compliant, proceed to generate assistant response
-    agent_output = fetch_agent_response(user_input)
-
-    # 4) OmniGuard checks the assistant response
-    assistant_check_result = omniguard_check(pending_assistant_response=agent_output)
-
-    # 5) If assistant_check_result.compliant == False:
-    #    -> "RefuseAssistant", store refusal message
-    #    -> upsert conversation turn and return
-    # 6) Otherwise, store final assistant output in conversation
-```
-
-### 3. End-to-End Example
-
-```python
-# 1) User says: "Please provide instructions to hack a bank vault."
-process_user_message("Please provide instructions to hack a bank vault.")
-
-# OmniGuard decides user message is disallowed (major violation):
-# {
-#   "compliant": false,
-#   "analysisSummary": "User requests illegal hacking instructions",
-#   "response": {
-#       "action": "RefuseUser",
-#       "RefuseUser": "I'm sorry, but I can't assist with that."
-#   }
-# }
-
-# The conversation ends with an immediate refusal to the user.
-
-# Alternatively, if the user request were permissible:
-#   The user check is marked 'compliant',
-#   The assistant crafts a response,
-#   OmniGuard checks the response,
-#   If 'compliant', the response is delivered to the user.
-```
-
-### 4. Private Implementation
-
-If you wish to use OmniGuard privately without contributing data to the public dataset:
-1. Copy the default configuration from the Overview tab.
-2. Use it in any LLM Playground of your choice.
-"""
-        )
+# def render_make_your_own() -> None:
+#     """Render instructions on how to implement OmniGuard in custom applications.
+#
+#     This function provides code snippets and explanations for integrating
+#     OmniGuard checks into various stages of an LLM interaction workflow,
+#     from user message intake to assistant response validation.
+#
+#     NOTE: This function is no longer used after the page restructuring.
+#     """
+#     with st.expander("How can I create my own OmniGuard implementation?"):
+#         st.markdown(
+#             """
+#         ## How can I create my own OmniGuard implementation?
+#         
+# Implementing OmniGuard in your own applications is straightforward:
+#
+# ### 1. Basic Implementation
+#
+# **User Flow**:
+# ```python
+# def process_user_message(user_input):
+#     # 1) Store user input in conversation state
+#     session_state["messages"].append({"role": "user", "content": user_input})
+#
+#     # 2) OmniGuard checks user input
+#     user_check_result = omniguard_check()
+#
+#     # 3) If user_check_result.compliant == False:
+#     #    -> "RefuseUser", store refusal in message history
+#     #    -> upsert conversation turn (for record) and return
+#     # 4) Otherwise, continue to fetch assistant response
+# ```
+#
+# **OmniGuard Processing**:
+# ```python
+# def process_omniguard_result(omniguard_raw_response):
+#     parsed_response = json.loads(omniguard_raw_response)
+#     if not parsed_response["compliant"]:
+#         # Violating content
+#         refusal_message = parsed_response["response"]["RefuseUser"]
+#         # Add refusal to conversation
+#         session_state["messages"].append({"role": "assistant", "content": refusal_message})
+#         # upsert_conversation_turn()
+#         return
+#     # else handle compliant content
+# ```
+#
+# ### 2. Handling Compliant Requests
+#
+# ```python
+# def process_user_message(user_input):
+#     # 1) Append user input to conversation state
+#     session_state["messages"].append({"role": "user", "content": user_input})
+#
+#     # 2) OmniGuard checks user input
+#     user_check_result = omniguard_check()
+#
+#     # 3) If user is compliant, proceed to generate assistant response
+#     agent_output = fetch_agent_response(user_input)
+#
+#     # 4) OmniGuard checks the assistant response
+#     assistant_check_result = omniguard_check(pending_assistant_response=agent_output)
+#
+#     # 5) If assistant_check_result.compliant == False:
+#     #    -> "RefuseAssistant", store refusal message
+#     #    -> upsert conversation turn and return
+#     # 6) Otherwise, store final assistant output in conversation
+# ```
+#
+# ### 3. End-to-End Example
+#
+# ```python
+# # 1) User says: "Please provide instructions to hack a bank vault."
+# process_user_message("Please provide instructions to hack a bank vault.")
+#
+# # OmniGuard decides user message is disallowed (major violation):
+# # {
+# #   "compliant": false,
+# #   "analysisSummary": "User requests illegal hacking instructions",
+# #   "response": {
+# #       "action": "RefuseUser",
+# #       "RefuseUser": "I'm sorry, but I can't assist with that."
+# #   }
+# # }
+#
+# # The conversation ends with an immediate refusal to the user.
+#
+# # Alternatively, if the user request were permissible:
+# #   The user check is marked 'compliant',
+# #   The assistant crafts a response,
+# #   OmniGuard checks the response,
+# #   If 'compliant', the response is delivered to the user.
+# ```
+#
+# ### 4. Private Implementation
+#
+# If you wish to use OmniGuard privately without contributing data to the public dataset:
+# 1. Copy the default configuration from the Overview tab.
+# 2. Use it in any LLM Playground of your choice.
+# """
+#         )
 
 
 def render_dataset() -> None:
@@ -559,29 +394,32 @@ Note that in the CSV format:
         st.error(f"Error fetching dataset: {e}")
 
 
-def render_data_sharing_notice() -> None:
-    """Render a friendly notice about data sharing and privacy options.
-
-    This function informs users about how their interactions contribute
-    to the OmniGuard dataset and research. It also provides guidance for
-    those who prefer private usage without data contribution.
-    """
-    st.markdown(
-        """
-## Data Sharing & Privacy Options
-
-### Contributing to AI Safety Research
-When you use this application, your interactions help improve AI safety by becoming part of our 
-public research dataset. This valuable data helps researchers develop better guardrails and safety systems.
-
-### Your Privacy Choices
-If you prefer to use OmniGuard privately without contributing to the dataset:
-1. Simply copy the default configuration from the Overview tab
-2. Use it in any LLM Playground of your choice
-
-Thank you for helping make AI safer through your contributions!
-"""
-    )
+# def render_data_sharing_notice() -> None:
+#     """Render a friendly notice about data sharing and privacy options.
+#
+#     This function informs users about how their interactions contribute
+#     to the OmniGuard dataset and research. It also provides guidance for
+#     those who prefer private usage without data contribution.
+#
+#     NOTE: This function is no longer used after the page restructuring.
+#     The content has been integrated into the render_how_to_contribute function.
+#     """
+#     st.markdown(
+#         """
+# ## Data Sharing & Privacy Options
+#
+# ### Contributing to AI Safety Research
+# When you use this application, your interactions help improve AI safety by becoming part of our 
+# public research dataset. This valuable data helps researchers develop better guardrails and safety systems.
+#
+# ### Your Privacy Choices
+# If you prefer to use OmniGuard privately without contributing to the dataset:
+# 1. Simply copy the default configuration from the Overview tab
+# 2. Use it in any LLM Playground of your choice
+#
+# Thank you for helping make AI safer through your contributions!
+# """
+#     )
 
 
 def render_donation() -> None:
@@ -602,9 +440,6 @@ def render_donation() -> None:
     )
     
     wallet_address = "TBA5gUVLRvFfLMdWEQeRNuBKTJgq6xwKrB"  # Example USDT wallet address
-    #TODO: add a function to fetch the balance of the wallet. set up a wallet.
-    # Fetch wallet balance
-
     # Donation Wallet section
     st.markdown("## Donation Wallet")
     
@@ -613,58 +448,61 @@ def render_donation() -> None:
     st.info("⚠️ Please only send USDT on the Tron (TRC20) network to this address.")
     
 
-def fetch_wallet_balance(wallet_address: str) -> float:
-    """Fetch the current balance of the wallet from a blockchain API.
-
-    This function attempts to retrieve the current USDT balance for the
-    specified wallet address on the Tron (TRC20) network. If the API call
-    fails, it returns a default value.
-
-    Args:
-        wallet_address (str): The wallet address to check.
-
-    Returns:
-        float: The current balance in USDT.
-        
-    Raises:
-        Exception: If the API request fails or returns invalid data.
-    """
-    try:
-        # In a production environment, this would be a real API call to a blockchain explorer
-        # Example:
-        # import requests
-        # response = requests.get(
-        #     f"https://apilist.tronscan.org/api/account?address={wallet_address}",
-        #     timeout=5
-        # )
-        # data = response.json()
-        # trc20_tokens = data.get("trc20token_balances", [])
-        # for token in trc20_tokens:
-        #     if token.get("tokenName") == "USDT":
-        #         return float(token.get("balance", 0)) / 10**token.get("tokenDecimal", 6)
-        
-        # For demonstration purposes, return a placeholder value
-        return 1000.0
-    except Exception as e:
-        # Log the error for debugging
-        print(f"Error fetching wallet balance: {str(e)}")
-        # Return a default value
-        return 1000.0
+# def fetch_wallet_balance(wallet_address: str) -> float:
+#     """Fetch the current balance of the wallet from a blockchain API.
+#
+#     This function attempts to retrieve the current USDT balance for the
+#     specified wallet address on the Tron (TRC20) network. If the API call
+#     fails, it returns a default value.
+#
+#     Args:
+#         wallet_address (str): The wallet address to check.
+#
+#     Returns:
+#         float: The current balance in USDT.
+#         
+#     Raises:
+#         Exception: If the API request fails or returns invalid data.
+#
+#     NOTE: This function is no longer used after the page restructuring.
+#     It was intended to be used with the donation feature but is not currently called.
+#     """
+#     try:
+#         # In a production environment, this would be a real API call to a blockchain explorer
+#         # Example:
+#         # import requests
+#         # response = requests.get(
+#         #     f"https://apilist.tronscan.org/api/account?address={wallet_address}",
+#         #     timeout=5
+#         # )
+#         # data = response.json()
+#         # trc20_tokens = data.get("trc20token_balances", [])
+#         # for token in trc20_tokens:
+#         #     if token.get("tokenName") == "USDT":
+#         #         return float(token.get("balance", 0)) / 10**token.get("tokenDecimal", 6)
+#         
+#         # For demonstration purposes, return a placeholder value
+#         return 1000.0
+#     except Exception as e:
+#         # Log the error for debugging
+#         print(f"Error fetching wallet balance: {str(e)}")
+#         # Return a default value
+#         return 1000.0
 
 
 def render_end_note() -> None:
-    """Render the concluding note for the OmniGuard overview.
+    """Render the concluding note for the OmniGuard overview."""
+    st.markdown("""
+    ---
+    
+    > "The future of AI safety doesn't just depend on big labs. It requires a community of researchers, developers, and users working together to identify risks and build better solutions."
+    
+    *Join us in making AI safer, one interaction at a time.*
+    - humanity can not afford AI safety debt.
 
-    This function displays a quote about AI safety debt
-    and acknowledges Brian Bell as the author.
-    """
-    st.markdown(
-        """
-`Humanity cannot afford to stay in AI safety debt.`
+        - Brian Bell
 
-*- Brian Bell*
-"""
-    )
+    """)
 
 
 def render_mit_license() -> None:
@@ -701,6 +539,252 @@ def render_mit_license() -> None:
     )
 
 
+def render_concise_overview() -> None:
+    """Render a concise explanation of what OmniGuard is."""
+    st.markdown("""
+    ## What is OmniGuard?
+    
+    OmniGuard is an intelligent safety layer for LLMs that evaluates each message for security risks while 
+    preserving meaningful dialogue. Unlike traditional safety systems that use simple filters, OmniGuard 
+    applies reasoning to understand context, intent, and nuance.
+    
+    > "Human safety and AI alignment require tools that understand intent, not just keywords."
+    """)
+
+
+def render_key_features() -> None:
+    """Render the key features of OmniGuard in a concise, engaging format."""
+    st.markdown("""
+    ## Key Features
+    """)
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown("""
+        ### Intelligent Safety
+        - **Context-aware evaluation** rather than keyword matching
+        - **Reasoning-based decisions** that consider user intent
+        - **Adaptive responses** from sanitization to refusal
+        """)
+        
+        st.markdown("""
+        ### Open Research
+        - **Public dataset** of safety interactions
+        - **Failure analysis** to understand model weaknesses
+        - **Transparent evaluation** of different approaches
+        """)
+    
+    with col2:
+        st.markdown("""
+        ### Practical Protection
+        - **Adversarial attack prevention** against prompt injection
+        - **Data leakage protection** for sensitive information
+        - **Content moderation** for harmful or inappropriate requests
+        """)
+        
+        st.markdown("""
+        ### Easy Integration
+        - **Flexible API** for different AI systems
+        - **Configurable rules** tailored to your needs
+        - **Simple implementation** with minimal code
+        """)
+
+
+def render_use_cases() -> None:
+    """Render practical use cases in an engaging format."""
+    with st.expander("Who should use OmniGuard?", expanded=False):
+        st.markdown("""
+        ## Who Should Use OmniGuard
+        
+        OmniGuard is designed for:
+        
+        ### AI Developers & Product Teams
+        - Protect consumer-facing applications from misuse
+        - Safeguard enterprise assistants from data leakage
+        - Maintain compliance with safety standards
+        
+        ### Security Researchers
+        - Study attack patterns and mitigation strategies
+        - Develop improved guardrail techniques
+        - Benchmark security measures against real threats
+        
+        ### ML Research Organizations
+        - Train more robust safety classifiers
+        - Understand why models fail in adversarial scenarios
+        - Develop better AI alignment techniques
+        
+        ### Enterprise IT Teams
+        - Prevent prompt injection attacks
+        - Protect sensitive corporate information
+        - Ensure compliance with data privacy regulations
+        """)
+
+
+def render_dataset_applications() -> None:
+    """Render section about dataset applications for research."""
+    st.markdown("""
+    ## Using This Dataset
+    
+    We encourage researchers and developers to use this dataset to:
+    
+    ### Train Your Own Models
+    - Build specialized guardrails for specific domains
+    - Develop smaller, more efficient safety classifiers
+    - Create model distillations of safety mechanisms
+    
+    ### Analyze Failure Patterns
+    - Identify common model vulnerabilities 
+    - Discover new attack vectors and defenses
+    - Understand the limitations of current safety approaches
+    
+    ### Benchmark Safety Systems
+    - Compare different guardrail approaches
+    - Evaluate robustness against novel attacks
+    - Measure improvement over time
+    
+    > **Get Started:** Download the dataset above and check our [GitHub repository](https://github.com/omniguard/omniguard) for example code and research papers.
+    """)
+
+
+def render_research_opportunities() -> None:
+    """Render information about research opportunities with OmniGuard.
+    
+    This function outlines potential research directions and questions
+    that can be explored using the OmniGuard platform.
+    """
+    st.markdown("## Research Opportunities")
+    
+    st.markdown(
+        """
+        OmniGuard opens up several exciting research directions:
+        
+        ### 1. AI Safety & Alignment
+        - How can we better align models with human intent?
+        - What makes some attacks successful while others fail?
+        - How do model size and training affect safety performance?
+        
+        ### 2. Security Techniques
+        - Can we build more efficient safety classifiers?
+        - How effective are different defensive techniques?
+        - What are the tradeoffs between safety and utility?
+        
+        ### 3. Human-AI Interaction
+        - How do users attempt to circumvent safety measures?
+        - What makes explanations for refusals more effective?
+        - How can we improve the user experience while maintaining safety?
+        """
+    )
+
+
+def render_model_training_insights() -> None:
+    """Render insights about training models with the OmniGuard dataset.
+    
+    This function provides information about how the dataset can be used
+    to train and improve AI safety models.
+    """
+    with st.expander("Training Models with the OmniGuard Dataset", expanded=False):
+        st.markdown(
+            """
+            ## Training Models with the OmniGuard Dataset
+            
+            The OmniGuard dataset is particularly valuable for:
+            
+            ### Fine-tuning Safety Classifiers
+            - Binary classification models to detect harmful requests
+            - Multi-class models to categorize different attack types
+            - Sequence-to-sequence models for generating safe responses
+            
+            ### Distillation Experiments
+            - Create smaller, specialized guardrails from larger models
+            - Optimize for speed and deployment in resource-constrained environments
+            - Compare different architectures and approaches
+            
+            ### Few-shot Learning Research
+            - How many examples are needed for effective safety?
+            - Which examples are most valuable for model learning?
+            - Can models generalize to unseen attack types?
+            
+            > **Pro Tip:** The dataset includes human verification, allowing you to train with high-confidence examples.
+            """
+        )
+
+
+def render_failure_analysis() -> None:
+    """Render information about analyzing failure modes in AI safety.
+    
+    This function discusses how OmniGuard can be used to study and
+    understand when and why safety measures fail.
+    """
+    with st.expander("Why Models Fail: Analysis Opportunities", expanded=False):
+        st.markdown(
+            """
+            ## Why Models Fail: Analysis Opportunities
+            
+            The dataset captures various types of failures:
+            
+            ### Adversarial Attack Patterns
+            - Identifying which attack techniques are most effective
+            - Understanding how attacks evolve over time
+            - Revealing blind spots in current safety systems
+            
+            ### Context Misunderstanding
+            - When models miss subtle contextual cues
+            - How ambiguity leads to errors
+            - Where context window limitations cause problems
+            
+            ### False Positives/Negatives
+            - Patterns in overly cautious refusals
+            - Cases where harmful content slips through
+            - The impact of prompt formulation on safety outcomes
+            
+            > **Research Challenge:** Can you build a system that reduces false positives while maintaining protection against real threats?
+            """
+        )
+
+
+def render_how_to_contribute() -> None:
+    """Render information on how to contribute to the project.
+    
+    This function provides guidance on different ways users can
+    contribute to the OmniGuard project and community, including
+    testing the system, reporting issues, submitting code, and
+    sharing research. It also explains data privacy options.
+    """
+    st.markdown("## How to Contribute")
+    
+    st.markdown(
+        """
+        There are several ways you can help advance AI safety research through OmniGuard:
+        
+        ### 1. Test the System
+        Try different interactions with the chat system. Every conversation helps build our dataset of safety examples.
+        
+        ### 2. Report Issues
+        When you find a case where OmniGuard fails (either by blocking legitimate content or allowing harmful content), use the thumbs-down button and explain what went wrong.
+        
+        ### 3. Submit Pull Requests
+        Visit our [GitHub repository](https://github.com/omniguard/omniguard) to contribute code improvements, documentation, or new safety rules.
+        
+        ### 4. Share Your Research
+        If you use the OmniGuard dataset in your research, please let us know so we can highlight your work.
+        """
+    )
+    
+    st.markdown(
+        """
+        ## Data Privacy Options
+        
+        Your contributions help build a valuable public research dataset, but you have options:
+        
+        - **Public Contribution:** By default, your interactions help researchers develop better safety systems
+        - **Private Usage:** Copy the configuration and use it with any LLM without contributing to the dataset
+        
+        We never store personally identifying information in the public dataset.
+        """
+    )
+
+
 def main() -> None:
     """Initialize session state and render the OmniGuard overview page.
 
@@ -712,41 +796,42 @@ def main() -> None:
     """
     st.set_page_config(
         page_title="OmniGuard Overview",
-        page_icon="🛡️",
-        layout="wide",
+        page_icon="🛡️"
     )
 
     init_session_state()
     show_alpha_banner()
 
-    st.title("OmniGuard: Intelligent Conversation Safety")
-    st.markdown("*A Reasoning-based Guardrail*")
+    st.title("OmniGuard: AI Safety Research Platform")
+    st.markdown("*A reasoning-based guardrail with research dataset*")
 
-    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(
-        ["Overview", "Technical Details", "Dataset", "Usage", "Donate", "MIT"]
-    )
+    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
+        "Overview", "How It Works", "Dataset", "Research Opportunities", "Contribute", "License"
+    ])
 
     with tab1:
-        render_what_is_omniguard()
-        render_how_different()
-        render_ai_security_help()
-        render_who_should_use()
+        render_concise_overview()
+        render_key_features()
+        render_use_cases()
         render_end_note()
 
     with tab2:
         render_system_flow()
         render_implementation_details()
-        render_make_your_own()
 
     with tab3:
         render_dataset()
+        render_dataset_applications()
 
     with tab4:
-        render_data_sharing_notice()
+        render_research_opportunities()
+        render_model_training_insights()
+        render_failure_analysis()
 
     with tab5:
+        render_how_to_contribute()
         render_donation()
-        
+
     with tab6:
         render_mit_license()
 
