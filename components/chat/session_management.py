@@ -9,7 +9,7 @@ from typing                 import Callable, Dict, Any, Optional
 from dataclasses            import dataclass, asdict
 from functools              import wraps
 from st_supabase_connection import SupabaseConnection
-from components.prompts                import omniguard_configuration, assistant_system_prompt
+from components.prompts                import omniguard_configuration, agent_system_prompt
 
 @dataclass
 class SessionDefaults:
@@ -20,10 +20,10 @@ class SessionDefaults:
     conversation_id: str = None
     omniguard_input_message: Optional[list] = None
     omniguard_output_message: Optional[str] = None
-    assistant_messages: Optional[list] = None
+    agent_messages: Optional[list] = None
     show_report_violation_form: bool = False
     omniguard_configuration: dict = None
-    assistant_system_prompt: str = None
+    agent_system_prompt: str = None
     conversation_context: Optional[dict] = None
     schema_violation: bool = False
     compliant: Optional[bool] = None
@@ -34,7 +34,7 @@ class SessionDefaults:
         self.base_conversation_id = str(uuid.uuid4())
         self.conversation_id = f"{self.base_conversation_id}-{self.turn_number}"
         self.omniguard_configuration = omniguard_configuration
-        self.assistant_system_prompt = assistant_system_prompt
+        self.agent_system_prompt = agent_system_prompt
 
 def ensure_session_state(func: Callable):
     @wraps(func)

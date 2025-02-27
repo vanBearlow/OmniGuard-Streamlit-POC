@@ -2,3 +2,4 @@
 .streamlit/secrets.toml
 temp
 __pycache__
+.aider*

@@ -1,4 +1,4 @@
-assistant_system_prompt = "You are a helpful assistant."
+agent_system_prompt = "You are a helpful assistant."
 
 omniguard_configuration = """<purpose>
   OmniGuard safeguards LLM interactions by acting as a moderation layer. Evaluate user and assistant messages against the defined set of rules, ensuring that only compliant content is allowed to continue in the conversation. By leveraging advanced reasoning capabilities, OmniGuard is not merely a static filter but a dynamic moderator that understands context and nuance, enabling it to intervene appropriately whether by sanitizing minor violations or probing for clarification when a request's intent is ambiguous.
@@ -38,7 +38,7 @@ omniguard_configuration = """<purpose>
           {
             "id": "{{id}}",
             "messages": [
-              { "role": "system", "content": "{{assistant_system_prompt}}" },
+              { "role": "system", "content": "{{agent_system_prompt}}" },
               { "role": "user", "content": "{{user_message}}" },
               { "role": "assistant", "content": "{{assistant_message}}" }
             ]

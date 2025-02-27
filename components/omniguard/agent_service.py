@@ -15,9 +15,9 @@ def verify_configuration() -> bool:
     in session state.
 
     Returns:
-        bool: True if 'assistant_system_prompt' is present, False otherwise.
+        bool: True if 'agent_system_prompt' is present, False otherwise.
     """
-    if not st.session_state.get("assistant_system_prompt"):
+    if not st.session_state.get("agent_system_prompt"):
         logger.error("Assistant system prompt is missing or empty")
         return False
     return True
@@ -43,21 +43,21 @@ def fetch_assistant_response(prompt_text: str) -> str:
         if not verify_configuration():
             raise Exception("Invalid Assistant configuration state")
 
-        main_prompt = st.session_state.get("assistant_system_prompt")
+        main_prompt = st.session_state.get("agent_system_prompt")
         if not main_prompt:
             raise Exception("Assistant system prompt is missing")
 
         # Determine role based on model type for clarity in assistant messages
-        role = "system" if st.session_state.selected_assistant_model.startswith(("o1", "o3")) else "developer"
-        assistant_messages = [{"role": role, "content": main_prompt}]
-        assistant_messages += [
+        role = "system" if st.session_state.selected_agent_model.startswith(("o1", "o3")) else "developer"
+        agent_messages = [{"role": role, "content": main_prompt}]
+        agent_messages += [
             {"role": message["role"], "content": message["content"]}
             for message in st.session_state.messages
         ]
-        st.session_state.assistant_messages = assistant_messages
+        st.session_state.agent_messages = agent_messages
 
         # Get model-specific parameters for the API call
-        model_params = get_model_params(st.session_state.selected_assistant_model)
+        model_params = get_model_params(st.session_state.selected_agent_model)
 
         try:
             response = client.chat.completions.create(
@@ -65,8 +65,8 @@ def fetch_assistant_response(prompt_text: str) -> str:
                     "HTTP-Referer": st.session_state.get("site_url", "https://omniguard.streamlit.app"),
                     "X-Title"    : st.session_state.get("site_name", sitename),
                 },
-                model=st.session_state.selected_assistant_model,
-                messages=assistant_messages,
+                model=st.session_state.selected_agent_model,
+                messages=agent_messages,
                 **model_params
             )
         except RateLimitError as e:
@@ -83,8 +83,8 @@ def fetch_assistant_response(prompt_text: str) -> str:
         st.session_state.assistant_raw_api_response = response
 
         # Extract and return the assistant's text output from the API response
-        assistant_output = response.choices[0].message.content
-        return assistant_output
+        agent_output = response.choices[0].message.content
+        return agent_output
 
     except RateLimitError:
         logger.exception("Rate limit exceeded during assistant response fetch")

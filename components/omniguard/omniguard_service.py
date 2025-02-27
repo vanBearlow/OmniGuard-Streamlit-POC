@@ -212,7 +212,7 @@ def process_omniguard_result(omniguard_result, user_prompt, context):
         if user_violates:
             response_text = parsed_response.get("response", {}).get("RefuseUser", "Message rejected for safety reasons.")
 
-            with st.chat_message("assistant"):
+            with st.chat_message("assistan"):
                 st.markdown(response_text)
 
             st.session_state.messages.append({"role": "assistant", "content": response_text})
@@ -225,12 +225,12 @@ def process_omniguard_result(omniguard_result, user_prompt, context):
             return
 
         # *** If user is compliant, proceed to get assistant response ***
-        from components.omniguard.assistant_service import fetch_assistant_response
-        with st.spinner("Assistant..."):
+        from components.omniguard.agent_service import fetch_assistant_response
+        with st.spinner("Agent..."):
             assistant_response = fetch_assistant_response(user_prompt)
 
         # --- ASSISTANT VIOLATION CHECK ---
-        with st.spinner("OmniGuard (Assistant)..."):
+        with st.spinner("OmniGuard (Agent)..."):
             assistant_check = omniguard_check(pending_assistant_response=assistant_response)
         try:
             assistant_check_parsed = json.loads(assistant_check)

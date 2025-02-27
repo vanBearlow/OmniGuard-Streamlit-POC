@@ -282,7 +282,7 @@ Each rule group includes:
 {
   "id": "{{id}}",
   "messages": [
-    { "role": "system", "content": "{{assistant_system_prompt}}" },
+    { "role": "system", "content": "{{agent_system_prompt}}" },
     { "role": "user", "content": "{{user_message}}" },
     { "role": "assistant", "content": "{{assistant_message}}" }
   ]
@@ -349,10 +349,10 @@ def process_user_message(user_input):
     user_check_result = omniguard_check()
 
     # 3) If user is compliant, proceed to generate assistant response
-    assistant_output = fetch_assistant_response(user_input)
+    agent_output = fetch_assistant_response(user_input)
 
     # 4) OmniGuard checks the assistant response
-    assistant_check_result = omniguard_check(pending_assistant_response=assistant_output)
+    assistant_check_result = omniguard_check(pending_assistant_response=agent_output)
 
     # 5) If assistant_check_result.compliant == False:
     #    -> "RefuseAssistant", store refusal message

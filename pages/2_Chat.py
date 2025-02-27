@@ -80,7 +80,7 @@ def main():
     display_debug_expanders(
         st.session_state.omniguard_input_message,
         st.session_state.omniguard_output_message,
-        st.session_state.assistant_messages
+        st.session_state.agent_messages
     )
 
 if __name__ == "__main__":

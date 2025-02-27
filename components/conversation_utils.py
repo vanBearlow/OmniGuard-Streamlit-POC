@@ -20,7 +20,7 @@ def build_conversation_json(messages: List[Dict[str, str]]) -> Dict[str, Any]:
                         with the system prompt as the first message.
     """
     # Build full conversation by prepending the system prompt.
-    system_prompt = st.session_state.assistant_system_prompt
+    system_prompt = st.session_state.agent_system_prompt
     full_messages  = [{"role": "system", "content": system_prompt}]
     full_messages.extend(messages)
     

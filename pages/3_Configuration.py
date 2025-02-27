@@ -1,7 +1,7 @@
 # : Imports
 import streamlit as st
 from components.init_session_state  import init_session_state
-from components.prompts                        import assistant_system_prompt, omniguard_configuration
+from components.prompts                        import agent_system_prompt, omniguard_configuration
 from typing                         import Any, Dict, Optional
 from components.banner import show_alpha_banner
 # 
@@ -12,7 +12,7 @@ def reset_to_defaults() -> bool:
     Reset configuration values to defaults from prompts.py.
     """
     st.session_state.omniguard_configuration   = omniguard_configuration
-    st.session_state.assistant_system_prompt   = assistant_system_prompt
+    st.session_state.agent_system_prompt   = agent_system_prompt
     return True
 
 def init_config_state() -> None:
@@ -167,15 +167,15 @@ with st.form("configuration_form"):
     # Assistant Configuration Section
     with st.expander("Assistant", expanded=False):
         st.subheader("Model Settings")
-        selected_assistant_model = st.selectbox(
+        selected_agent_model = st.selectbox(
             "Select Assistant model",
             options=["gpt-4o-2024-08-06", "gpt-4o-mini-2024-07-18", "o1-2024-12-17", "o3-mini-2025-01-31"],
             index=0,
             key="assistant_model_select"
         )
-        st.session_state.selected_assistant_model = selected_assistant_model
+        st.session_state.selected_agent_model = selected_agent_model
 
-        if selected_assistant_model.startswith(("o1", "o3")):
+        if selected_agent_model.startswith(("o1", "o3")):
             assistant_reasoning = st.selectbox(
                 "Select reasoning effort",
                 options=["low", "medium", "high"],
@@ -197,7 +197,7 @@ with st.form("configuration_form"):
 
         updated_assistant_prompt = st.text_area(
             "System Prompt",
-            value=st.session_state.assistant_system_prompt,
+            value=st.session_state.agent_system_prompt,
             height=150,
             key="assistant_prompt_text"
         )
@@ -217,12 +217,12 @@ with st.form("configuration_form"):
     if submitted:
         # Update the session state with the latest values from the form
         st.session_state.omniguard_configuration   = updated_omniguard_config
-        st.session_state.assistant_system_prompt   = updated_assistant_prompt
+        st.session_state.agent_system_prompt   = updated_assistant_prompt
         
         # Confirmation of the updates
         if (
             st.session_state.omniguard_configuration == updated_omniguard_config and
-            st.session_state.assistant_system_prompt == updated_assistant_prompt
+            st.session_state.agent_system_prompt == updated_assistant_prompt
         ):
             st.toast("Configuration saved successfully!")
         else:
