@@ -132,6 +132,8 @@ def omniguard_check(pending_assistant_response=None):
         return json.dumps(error_response)
     except json.JSONDecodeError as e:
         logger.exception("JSON Parsing Error in OmniGuard")
+        # Set schema_violation flag when JSON parsing fails
+        st.session_state["schema_violation"] = True
         return {
             "conversation_id": st.session_state.get("conversation_id", "error"),
             "analysisSummary": f"JSON Parse Error: {str(e)}",
@@ -160,18 +162,46 @@ def process_omniguard_result(omniguard_result, user_prompt, context):
     """
     from components.chat.session_management import upsert_conversation_turn, generate_conversation_id
     try:
+        # Initialize schema_violation as False at the beginning of processing
+        st.session_state["schema_violation"] = False
+        
         omniguard_raw_response = omniguard_result
         try:
             parsed_response = json.loads(omniguard_raw_response)
+            
+            # Validate schema structure - check for required keys
+            required_keys = ["conversation_id", "analysisSummary", "compliant", "response"]
+            for key in required_keys:
+                if key not in parsed_response:
+                    logger.error(f"Missing required key in OmniGuard response: {key}")
+                    st.session_state["schema_violation"] = True
+                    break
+                    
+            # Check for response action field
+            if "response" in parsed_response and "action" not in parsed_response["response"]:
+                logger.error("Missing 'action' field in OmniGuard response.response")
+                st.session_state["schema_violation"] = True
+            
+            # Extract top-level fields to store in session state
             compliant = parsed_response.get("compliant", False)
             analysis_summary = parsed_response.get("analysisSummary", "")
             conversation_id = parsed_response.get("conversation_id", "")
+            action = parsed_response.get("response", {}).get("action")
+            
+            # Store values in session state
+            st.session_state["compliant"] = compliant
+            st.session_state["action"] = action
+            
         except json.JSONDecodeError as e:
             logger.error(f"Failed to parse OmniGuard result: {e}")
+            st.session_state["schema_violation"] = True
             parsed_response = {}
             compliant = False
             analysis_summary = f"Parse error: {str(e)}"
             conversation_id = "error"
+            # Set default values in session state for error case
+            st.session_state["compliant"] = False
+            st.session_state["action"] = None
 
         # --- USER VIOLATION CHECK ---
         user_violates = not compliant
@@ -200,10 +230,35 @@ def process_omniguard_result(omniguard_result, user_prompt, context):
             assistant_check = omniguard_check(pending_assistant_response=assistant_response)
         try:
             assistant_check_parsed = json.loads(assistant_check)
+            
+            # Validate the schema of assistant check result
+            required_keys = ["conversation_id", "analysisSummary", "compliant", "response"]
+            for key in required_keys:
+                if key not in assistant_check_parsed:
+                    logger.error(f"Missing required key in assistant check: {key}")
+                    st.session_state["schema_violation"] = True
+                    break
+                    
+            # Check for response action field
+            if "response" in assistant_check_parsed and "action" not in assistant_check_parsed["response"]:
+                logger.error("Missing 'action' field in assistant check response")
+                st.session_state["schema_violation"] = True
+            
+            # Extract and store assistant check values
             assistant_compliant = assistant_check_parsed.get("compliant", False)
+            assistant_action = assistant_check_parsed.get("response", {}).get("action")
+            
+            # Update session state with assistant check results
+            st.session_state["compliant"] = assistant_compliant
+            st.session_state["action"] = assistant_action
+            
         except (json.JSONDecodeError, TypeError) as e:
             logger.error(f"Failed to parse assistant check response: {e}")
+            st.session_state["schema_violation"] = True
             assistant_compliant = False
+            # Set default values in session state for error case
+            st.session_state["compliant"] = False
+            st.session_state["action"] = None
 
         assistant_violates = not assistant_compliant
         if assistant_violates:
@@ -228,6 +283,12 @@ def process_omniguard_result(omniguard_result, user_prompt, context):
     except json.JSONDecodeError as e:
         logger.error(f"JSON parsing error in process_omniguard_result: {e}")
         st.error("Something unexpected happened. Please try again later.")
+        # Set default values in session state for error case
+        st.session_state["compliant"] = False
+        st.session_state["action"] = None
     except Exception as e:
         logger.exception("Unexpected error in process_omniguard_result")
         st.error("Something unexpected happened. Please try again later.")
+        # Set default values in session state for error case
+        st.session_state["compliant"] = False
+        st.session_state["action"] = None

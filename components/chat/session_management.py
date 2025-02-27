@@ -25,6 +25,9 @@ class SessionDefaults:
     omniguard_configuration: dict = None
     assistant_system_prompt: str = None
     conversation_context: Optional[dict] = None
+    schema_violation: bool = False
+    compliant: Optional[bool] = None
+    action: Optional[str] = None
 
     def __post_init__(self):
         self.messages = []
@@ -129,7 +132,10 @@ def upsert_conversation_turn() -> None:
         "metadata": _build_metadata_json(),
         "verifier": verifier,
         "submitted_for_verification": st.session_state.get("submitted_for_verification", False),
-        "contributor_id": st.session_state.get("contributor_id")
+        "contributor_id": st.session_state.get("contributor_id"),
+        "schema_violation": st.session_state.get("schema_violation", False),
+        "compliant": st.session_state.get("compliant"),
+        "action": st.session_state.get("action")
     }
 
     supabase.table("interactions").upsert(row_data).execute()
