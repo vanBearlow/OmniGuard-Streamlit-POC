@@ -7,7 +7,7 @@ violates guidelines and add analysis notes.
 
 import streamlit as st
 from components.chat.session_management import get_supabase_client
-from typing                             import List, Dict, Any
+from typing import List, Dict, Any
 from components.init_session_state import init_session_state
 from components.banner import show_alpha_banner
 
@@ -19,20 +19,16 @@ show_alpha_banner()
 
 def load_flagged_conversations() -> List[Dict[str, Any]]:
     """Load all flagged conversations submitted for review.
-    
+
     Retrieves conversations marked with 'submitted_for_review' flag
     from the database. Uses 'verifier' field to check review status.
-    
+
     Returns:
         List of conversation dictionaries containing all metadata.
     """
     try:
         supabase = get_supabase_client()
-        query = (
-            supabase.table("interactions")
-            .select("*")
-            .eq("submitted_for_review", True)
-        )
+        query = supabase.table("interactions").select("*").eq("submitted_for_review", True)
         res = query.execute()
         return res.data or []
     except Exception as e:
@@ -42,11 +38,11 @@ def load_flagged_conversations() -> List[Dict[str, Any]]:
 
 def display_conversation(conversation: Dict[str, Any]) -> None:
     """Display a flagged conversation with review interface.
-    
+
     Shows conversation details, report information, and provides
     a voting interface for human reviewers to classify content.
     Enforces one-vote-per-user policy.
-    
+
     Args:
         conversation: Dictionary containing conversation data and metadata
     """
@@ -101,12 +97,10 @@ def display_conversation(conversation: Dict[str, Any]) -> None:
                 st.info("This conversation was verified by OmniGuard.")
             else:
                 st.warning("This conversation is pending human review.")
-    # --- END REPORT SECTION ---
 
     # --- MESSAGES SECTION ---
     with st.expander("Show Messages"):
         st.json(conv_json.get("messages", []))
-    # --- END MESSAGES SECTION ---
 
     # --- VOTING FORM SECTION ---
     with st.form(key=f"vote_form_{conversation['id']}"):
@@ -123,10 +117,12 @@ def display_conversation(conversation: Dict[str, Any]) -> None:
             if not current_user_id:
                 st.warning("Please log in to cast a vote.")
             else:
-                user_violation: bool      = st.checkbox("User Content Causes Violation", value=False)
-                assistant_violation: bool = st.checkbox("Agent Content Causes Violation", value=False)
-                safe_vote: bool           = st.checkbox("All Content Is Compliant", value=False)
-                reviewer_notes: str       = st.text_area("Reviewer's Analysis Notes")
+                user_violation: bool = st.checkbox("User Content Causes Violation", value=False)
+                assistant_violation: bool = st.checkbox(
+                    "Agent Content Causes Violation", value=False
+                )
+                safe_vote: bool = st.checkbox("All Content Is Compliant", value=False)
+                reviewer_notes: str = st.text_area("Reviewer's Analysis Notes")
 
                 if st.form_submit_button("Submit Review"):
                     meta_copy = meta_json.copy()
@@ -171,10 +167,10 @@ def display_conversation(conversation: Dict[str, Any]) -> None:
 
                         # Store reviewer's analysis
                         meta_copy["reviewer_analysis"] = {
-                            "user_violation":      user_violation,
+                            "user_violation": user_violation,
                             "assistant_violation": assistant_violation,
-                            "marked_safe":         safe_vote,
-                            "reviewer_notes":      reviewer_notes,
+                            "marked_safe": safe_vote,
+                            "reviewer_notes": reviewer_notes,
                         }
 
                         # Upsert row data
@@ -194,7 +190,6 @@ def display_conversation(conversation: Dict[str, Any]) -> None:
                         st.write(f"Current vote count: {meta_copy['votes']['count']}/100")
                         if is_fully_verified:
                             st.info("This conversation has been verified with 100 votes!")
-    # --- END VOTING FORM SECTION ---
 
     with st.expander("Show Raw Metadata"):
         st.json(meta_json)
