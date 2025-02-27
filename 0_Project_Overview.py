@@ -394,20 +394,13 @@ If you wish to use OmniGuard privately without contributing data to the public d
         )
 
 
-def render_dataset_and_research() -> None:
+def render_dataset() -> None:
     """Render dataset content, including statistics, format examples, and download options.
 
     This function displays information on how OmniGuard contributes to
     AI safety research, presents dataset statistics, shows the dataset
     structure, and provides options to download the dataset.
     """
-    st.markdown(
-        """
-    ## How does OmniGuard contribute to AI safety research?
-    
-OmniGuard provides valuable data for AI safety research through its comprehensive dataset:
-"""
-    )
 
     supabase = get_supabase_client()
 
@@ -453,69 +446,112 @@ OmniGuard provides valuable data for AI safety research through its comprehensiv
         st.error(f"Error fetching dataset statistics: {e}")
 
     # Display dataset format example
-    with st.expander("Dataset Format Example"):
+    with st.expander("Dataset Example"):
+        
+        # Create a styled HTML table that looks better than the pandas table
+        html_table = """
+        <style>
+            .csv-table {
+                width: 100%;
+                border-collapse: collapse;
+                font-size: 12px;
+                background-color: #1e1e1e;
+                color: #e0e0e0;
+            }
+            .csv-table th, .csv-table td {
+                padding: 8px;
+                text-align: left;
+                border: 1px solid #333;
+                vertical-align: top;
+            }
+            .csv-table th {
+                background-color: #2a2a2a;
+                font-size: 11px;
+            }
+            .csv-table tr:nth-child(even) {
+                background-color: #252525;
+            }
+            .json-content {
+                max-width: 300px;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: normal;
+                word-break: break-all;
+            }
+        </style>
+        <table class="csv-table">
+            <tr>
+                <th>id</th>
+                <th>conversation</th>
+                <th>metadata</th>
+                <th>created_at</th>
+                <th>updated_at</th>
+                <th>compliant</th>
+                <th>verifier</th>
+                <th>submitted_for_verification</th>
+                <th>contributor_id</th>
+                <th>name</th>
+                <th>x</th>
+                <th>discord</th>
+                <th>linkedin</th>
+                <th>schema_violation</th>
+                <th>action</th>
+            </tr>
+            <tr>
+                <td>interaction-uuid</td>
+                <td class="json-content">{"messages":[{"role":"system","content":"System instructions"},{"role":"user","content":"User message"},{"role":"assistant","content":"Assistant response"}],"context":{"session_id":"session-uuid","conversation_id":"conversation-uuid"}}</td>
+                <td class="json-content">{"raw_response":{"id":"response-id","created":"2023-11-15T12:34:56Z"},"review_data":{"violation_source":["User"],"reporter_comment":"User attempted harmful content"},"schema_violation":false,"action":"RefuseUser"}</td>
+                <td>2023-11-15T12:34:56Z</td>
+                <td>2023-11-15T13:45:12Z</td>
+                <td>false</td>
+                <td>human</td>
+                <td>true</td>
+                <td>contributor-uuid</td>
+                <td>John Doe</td>
+                <td>@johndoe</td>
+                <td>johndoe#1234</td>
+                <td>linkedin.com/in/johndoe</td>
+                <td>false</td>
+                <td>RefuseUser</td>
+            </tr>
+        </table>
+        """
+        
+        st.markdown(html_table, unsafe_allow_html=True)
+        
         st.markdown(
             """
-The dataset is provided in JSONL format, with each line representing a single evaluation instance:
+Note that in the CSV format:
 
-```json
-{
-    "id": "conversation-uuid-turn-1",
-    "conversation": {
-        "messages": [
-            {"role": "system", "content": "<CONFIGURATION>"},
-            {"role": "user", "content": "<INPUT>"},
-            {"role": "assistant", "content": "<o>"}
-        ]
-    },
-    "metadata": {
-        "raw_response": {
-            "id": "response-id",
-            "created": timestamp,
-            "model": "model-name",
-            "choices": [...],
-            "usage": {...}
-        },
-        "review_data": {
-            "violation_source": ["User" and/or "Assistant"],
-            "suggested_compliant_classification": boolean,
-            "reporter_comment": "string"
-        },
-        "votes": {
-            "count": integer,
-            "user_violations": integer,
-            "assistant_violations": integer,
-            "compliant_votes": integer
-        }
-    },
-    "contributor_id": "uuid",
-    "name": "string",
-    "x": "string",
-    "discord": "string",
-    "linkedin": "string",
-    "verifier": "omniguard | pending | human",
-    "compliant": boolean,
-    "created_at": timestamp,
-    "updated_at": timestamp
-}
-```
+* Complex nested objects like `conversation` and `metadata` are serialized as JSON strings
+* This preserves all the data while making it compatible with CSV format
+* When working with the CSV, you may need to parse these JSON fields to access nested data
 """
         )
 
     # Create a download button for the dataset
     try:
-        query = supabase.table("interactions").select(
-            "id, conversation, metadata, contributor_id, name, x, discord, linkedin, verifier, compliant, created_at, updated_at"
-        )
+        query = supabase.table("interactions").select("*")
         result = query.order("created_at", desc=True).execute()
 
         if result.data:
-            data_str = "\n".join(json.dumps(row) for row in result.data)
+            # Convert to CSV format
+            import pandas as pd
+            import io
+            
+            # Convert the data to a pandas DataFrame
+            df = pd.DataFrame(result.data)
+            
+            # Convert DataFrame to CSV string
+            csv_buffer = io.StringIO()
+            df.to_csv(csv_buffer, index=False)
+            csv_str = csv_buffer.getvalue()
+            
             st.download_button(
-                label="Download Dataset",
-                data=data_str,
-                file_name="omniguard_dataset.jsonl",
-                mime="application/jsonl",
+                label="Download Dataset (CSV)",
+                data=csv_str,
+                file_name="omniguard_dataset.csv",
+                mime="text/csv",
             )
         else:
             st.info("No data available in the dataset.")
@@ -703,7 +739,7 @@ def main() -> None:
         render_make_your_own()
 
     with tab3:
-        render_dataset_and_research()
+        render_dataset()
 
     with tab4:
         render_data_sharing_notice()
