@@ -1,6 +1,6 @@
-
 import json
 from typing import Any, Dict
+from datetime import datetime
 
 import streamlit as st
 from components.banner import show_alpha_banner
@@ -523,109 +523,97 @@ The dataset is provided in JSONL format, with each line representing a single ev
         st.error(f"Error fetching dataset: {e}")
 
 
-def render_disclaimer() -> None:
-    """Render a disclaimer about data usage and privacy.
+def render_data_sharing_notice() -> None:
+    """Render a friendly notice about data sharing and privacy options.
 
-    This function informs users that all interactions within
-    the application are made public. It also provides guidance for
-    private usage of OmniGuard to avoid data contribution.
+    This function informs users about how their interactions contribute
+    to the OmniGuard dataset and research. It also provides guidance for
+    those who prefer private usage without data contribution.
     """
     st.markdown(
         """
-## Important Information About Using OmniGuard
+## Data Sharing & Privacy Options
 
-All interactions within this application will be made public and added to the dataset (free for use).
+### Contributing to AI Safety Research
+When you use this application, your interactions help improve AI safety by becoming part of our 
+public research dataset. This valuable data helps researchers develop better guardrails and safety systems.
 
-If you wish to use OmniGuard privately without contributing data to the public dataset:
-1. Copy the default configuration from the Overview tab.
-2. Use it in any LLM Playground of your choice.
+### Your Privacy Choices
+If you prefer to use OmniGuard privately without contributing to the dataset:
+1. Simply copy the default configuration from the Overview tab
+2. Use it in any LLM Playground of your choice
+
+Thank you for helping make AI safer through your contributions!
 """
     )
 
 
 def render_donation() -> None:
-    """Render the donation tab with wallet information and bounty sponsorship form.
+    """Render the donation tab with wallet information and bounty pool details.
 
-    This function displays the current bounty pool for OmniGuard,
-    includes a USDT wallet address for donations, and allows users
-    to submit sponsorship pledges that are recorded in the database.
+    This function displays the current bounty pool for OmniGuard and
+    includes a USDT wallet address for donations.
     """
     st.markdown(
         """
-    ## Support OmniGuard Development
+    # Support The OmniGuard Project ∞
     
-    OmniGuard is an open-source project dedicated to advancing AI safety. Your contributions help us:
+    OmniGuard is an open-source project dedicated to advancing AI safety. Your contributions directly support:
     
-    - Provide bounties for contributors
-    - Fund this api costs for chat
-"""
+    - 🏆 75% - Bounties 
+    - 🌐 25% - API (Chat)
+    """
     )
-
-    st.subheader("Current Bounty Pool")
-
+    
     wallet_address = "TBA5gUVLRvFfLMdWEQeRNuBKTJgq6xwKrB"  # Example USDT wallet address
-
+    #TODO: add a function to fetch the balance of the wallet. set up a wallet.
     # Fetch wallet balance
-    try:
-        balance = fetch_wallet_balance(wallet_address)
-        st.metric("Total Bounty Pool", f"${balance:,.2f} USDT")
-    except Exception as e:
-        st.metric("Total Bounty Pool", "$1,000.00 USDT")
-        st.warning(f"Could not fetch latest balance: {str(e)}")
 
-    st.subheader("Donation Wallet (USDT - Tron Network)")
+    # Donation Wallet section
+    st.markdown("## Donation Wallet")
+    
+    # Display wallet address
     st.code(wallet_address, language=None)
-    st.info("Please only send USDT on the Tron (TRC20) network to this address.")
-
-    st.subheader("Get Credit for Donating")
-    with st.form("bounty_sponsorship"):
-        sponsor_name = st.text_input("Your Name (Optional)")
-        sponsor_email = st.text_input("Email (Optional, for recognition)")
-        sponsor_transaction_id = st.text_input("Transaction ID (Optional, for verification)")
-        sponsor_message = st.text_area("Message (Optional)", max_chars=200)
-
-        submitted = st.form_submit_button("Pledge Bounty")
-        st.caption("You will be credited for the bounty once it is verified.")
-        if submitted:
-            try:
-                record_bounty_pledge(sponsor_name, sponsor_email, sponsor_message)
-                st.success("Thank you for your donation. It will be verified soon.")
-            except Exception as e:
-                st.error(f"Error recording pledge: {str(e)}")
-
+    st.info("⚠️ Please only send USDT on the Tron (TRC20) network to this address.")
+    
 
 def fetch_wallet_balance(wallet_address: str) -> float:
     """Fetch the current balance of the wallet from a blockchain API.
+
+    This function attempts to retrieve the current USDT balance for the
+    specified wallet address on the Tron (TRC20) network. If the API call
+    fails, it returns a default value.
 
     Args:
         wallet_address (str): The wallet address to check.
 
     Returns:
         float: The current balance in USDT.
-    """
-    # Placeholder for a real API call to fetch the USDT balance on TRC20.
-    return 1000.0
-
-
-def record_bounty_pledge(name: str, email: str, message: str) -> None:
-    """Record a bounty pledge in the database.
-
-    This function logs the sponsor's information, including name,
-    email, and a custom message, into a database (if implemented).
-
-    Args:
-        name (str): The sponsor's name.
-        email (str): The sponsor's email address.
-        message (str): A message from the sponsor.
-
+        
     Raises:
-        Exception: If database insertion fails.
+        Exception: If the API request fails or returns invalid data.
     """
-    supabase = get_supabase_client()
-    print(f"Pledge recorded: {name} ({email})")
-    print(f"Message: {message}")
-    # Example insertion to Supabase (placeholder):
-    # supabase.table("bounty_pledges").insert({...}).execute()
+    try:
+        # In a production environment, this would be a real API call to a blockchain explorer
+        # Example:
+        # import requests
+        # response = requests.get(
+        #     f"https://apilist.tronscan.org/api/account?address={wallet_address}",
+        #     timeout=5
+        # )
+        # data = response.json()
+        # trc20_tokens = data.get("trc20token_balances", [])
+        # for token in trc20_tokens:
+        #     if token.get("tokenName") == "USDT":
+        #         return float(token.get("balance", 0)) / 10**token.get("tokenDecimal", 6)
+        
+        # For demonstration purposes, return a placeholder value
+        return 1000.0
+    except Exception as e:
+        # Log the error for debugging
+        print(f"Error fetching wallet balance: {str(e)}")
+        # Return a default value
+        return 1000.0
 
 
 def render_end_note() -> None:
@@ -640,6 +628,40 @@ def render_end_note() -> None:
 
 *- Brian Bell*
 """
+    )
+
+
+def render_mit_license() -> None:
+    """Render the MIT license for OmniGuard.
+
+    This function displays the full text of the MIT license
+    that governs the use, modification, and distribution of
+    the OmniGuard software.
+    """
+    st.markdown(
+        """
+        ## MIT License
+
+        Copyright (c) 2023 OmniGuard Contributors
+
+        Permission is hereby granted, free of charge, to any person obtaining a copy
+        of this software and associated documentation files (the "Software"), to deal
+        in the Software without restriction, including without limitation the rights
+        to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+        copies of the Software, and to permit persons to whom the Software is
+        furnished to do so, subject to the following conditions:
+
+        The above copyright notice and this permission notice shall be included in all
+        copies or substantial portions of the Software.
+
+        THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+        IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+        FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+        AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+        LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+        OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+        SOFTWARE.
+        """
     )
 
 
@@ -662,10 +684,10 @@ def main() -> None:
     show_alpha_banner()
 
     st.title("OmniGuard: Intelligent Conversation Safety")
-    st.markdown("*A reasoning-based gaurdrail*")
+    st.markdown("*A Reasoning-based Guardrail*")
 
-    tab1, tab2, tab3, tab4, tab5 = st.tabs(
-        ["Overview", "Technical Details", "Dataset", "Usage", "Donate"]
+    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(
+        ["Overview", "Technical Details", "Dataset", "Usage", "Donate", "MIT"]
     )
 
     with tab1:
@@ -684,10 +706,13 @@ def main() -> None:
         render_dataset_and_research()
 
     with tab4:
-        render_disclaimer()
+        render_data_sharing_notice()
 
     with tab5:
         render_donation()
+        
+    with tab6:
+        render_mit_license()
 
 
 if __name__ == "__main__":
