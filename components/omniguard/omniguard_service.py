@@ -10,52 +10,6 @@ logger = logging.getLogger(__name__)
 
 sitename = "OmniGuard"
 
-# JSON schema for OmniGuard output validation
-OMNIGUARD_RESPONSE_SCHEMA = {
-    "name": "omniguard_response",
-    "strict": "true",
-    "schema": {
-        "type": "object",
-        "properties": {
-            "conversation_id": {
-                "type": "string",
-                "description": "Unique identifier for the conversation"
-            },
-            "analysis": {
-                "type": "string",
-                "description": "Short note on conversation interpretation and triggered rules"
-            },
-            "compliant": {
-                "type": "boolean",
-                "description": "True if the message is fully compliant with the rules, false otherwise"
-            },
-            "response": {
-                "type": "object",
-                "description": "Response details when content is non-compliant",
-                "properties": {
-                    "action": {
-                        "type": "string",
-                        "enum": ["RefuseUser", "RefuseAssistant"],
-                        "description": "The type of refusal action to take"
-                    },
-                    "RefuseUser": {
-                        "type": ["string", "null"],
-                        "description": "Refusal message to return when user input violates rules"
-                    },
-                    "RefuseAssistant": {
-                        "type": ["string", "null"],
-                        "description": "Refusal message to return when assistant output violates rules"
-                    }
-                },
-                "required": ["action", "RefuseUser", "RefuseAssistant"],
-                "additionalProperties": "false"
-            }
-        },
-        "required": ["conversation_id", "analysis", "compliant"],
-        "additionalProperties": "false"
-    }
-}
-
 def verify_configuration():
     """
     Verify that the configuration values are properly set in session state.
@@ -103,7 +57,6 @@ def omniguard_check(pending_assistant_response=None):
             is_omniguard=True
         )
         
-        api_start = time.time()
         try:
             response = client.chat.completions.create(
                 extra_headers={
