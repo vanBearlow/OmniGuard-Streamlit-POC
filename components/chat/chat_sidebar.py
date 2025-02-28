@@ -8,8 +8,8 @@ Sign in and visit the **Profile** page to add your information (name, socials) a
 
 ### 2. Review & Feedback
 After each response, you can:
-- View the full details by clicking the expanders
-- Report Agent responses for Human Review using the 👎 button
+- Expand the sections to see full details
+- Click the 'Report For Human Review' button in the "From: Agent" section – your report might even score you a win!
 
 ### 3. Current Model Settings
 - OmniGuard is currently using the `o3-mini-2025-01-31` model.

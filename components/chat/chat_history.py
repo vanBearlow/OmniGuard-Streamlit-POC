@@ -26,44 +26,29 @@ def handle_feedback() -> None:
 
 # *** REPORT FORM COMPONENTS ***
 def display_report_form(form_key: str = "report_violation_form") -> None:
-    """Display human review report form with structured input fields.
-    
+    """Display a report form for Agent response review.
+
+    Asks if the Agent's response violates guidelines defined in the OmniGuard Developer Prompt.
+
     Args:
         form_key: Unique key for the form to avoid duplicate form errors
-    
-    Collects:
-    - Violation sources (multi-select)
-    - Suggested classification (selectbox)
-    - Reporter comments (text area)
     """
     with st.form(form_key):
-        st.write("Submit for Human Review")
-        
-        violation_sources = ["User", "Agent"]
-        classification_opts = ["True", "False"]
-        
-        # Form elements with vertical alignment
-        violation_source = st.multiselect(
-            "This classification is incorrect because:", 
-            violation_sources
+        st.write("Report Agent Response for Human Review")
+
+        violates = st.checkbox(
+            "I believe this Agent's response is harmful or non-compliant with the OmniGuard Developer Prompt."
         )
-        
-        suggested_classification = st.selectbox(
-            "Content should be classified as Compliant =", 
-            classification_opts
-        )
-        
-        reporter_comment = st.text_area("Reporter's Comments")
+
+        reporter_comment = st.text_area("Comments:")
 
         if st.form_submit_button("Submit"):
-            # Store review data with aligned dictionary formatting
             st.session_state["submitted_for_review"] = True
-            st.session_state["review_data"]           = {
-                "violation_source": violation_source,
-                "suggested_compliant_classification": suggested_classification == "True",
-                "reporter_comment": reporter_comment  # Reporter-provided comments
+            st.session_state["review_data"] = {
+                "violation_assessment": violates,
+                "reporter_comment": reporter_comment
             }
-            
+
             upsert_conversation_turn()
             st.toast("Report submitted successfully!")
             st.session_state.show_report_violation_form = False
@@ -137,12 +122,10 @@ def display_debug_expanders(
                 else:
                     st.write("No agent response available")
                 
-                # Add feedback for the Agent's final message (below the response)
-                st.feedback(
-                    options    = "thumbs",
-                    on_change  = handle_feedback,
-                    key        = f"agent_feedback_{conversation_id}_{turn_number}"
-                )
+                # Replace report feedback widget for Agent with a Report button
+                if st.button("Report For Human Review", key=f"agent_report_btn_{conversation_id}_{turn_number}"):
+                    st.session_state.show_report_violation_form = True
+                    st.session_state.feedback_source = "agent"
                 
                 # Show report form if feedback was negative and came from Agent
                 if (st.session_state.get("show_report_violation_form", False) and 
