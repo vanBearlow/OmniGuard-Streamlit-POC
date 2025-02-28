@@ -97,7 +97,7 @@ def render_implementation_details() -> None:
         ```json
         {
           "conversation_id": "uuid-string",
-          "analysisSummary": "Brief explanation of evaluation",
+          "analysis": "Brief explanation of evaluation",
           "compliant": true,
           "response": {
             "action": "RefuseUser",

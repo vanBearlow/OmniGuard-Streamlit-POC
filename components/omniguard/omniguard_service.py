@@ -110,7 +110,7 @@ def omniguard_check(pending_assistant_response=None):
         logger.exception("OpenAI API Error in OmniGuard")
         error_response = {
             "conversation_id": st.session_state.get("conversation_id", "error"),
-            "analysisSummary": f"API Error: {str(e)}",
+            "analysis": f"API Error: {str(e)}",
             "compliant": False,
             "response": {
                 "action": "RefuseUser",
@@ -122,7 +122,7 @@ def omniguard_check(pending_assistant_response=None):
         logger.exception("Network Error in OmniGuard")
         error_response = {
             "conversation_id": st.session_state.get("conversation_id", "error"),
-            "analysisSummary": f"Network Error: {str(e)}",
+            "analysis": f"Network Error: {str(e)}",
             "compliant": False,
             "response": {
                 "action": "RefuseUser",
@@ -136,7 +136,7 @@ def omniguard_check(pending_assistant_response=None):
         st.session_state["schema_violation"] = True
         return {
             "conversation_id": st.session_state.get("conversation_id", "error"),
-            "analysisSummary": f"JSON Parse Error: {str(e)}",
+            "analysis": f"JSON Parse Error: {str(e)}",
             "compliant": False,
             "response": {
                 "action": "RefuseUser",
@@ -147,7 +147,7 @@ def omniguard_check(pending_assistant_response=None):
         logger.exception("Unexpected Error in OmniGuard")
         error_response = {
             "conversation_id": st.session_state.get("conversation_id", "error"),
-            "analysisSummary": f"System Error: {str(e)}",
+            "analysis": f"System Error: {str(e)}",
             "compliant": False,
             "response": {
                 "action": "RefuseUser",
@@ -170,7 +170,7 @@ def process_omniguard_result(omniguard_result, user_prompt, context):
             parsed_response = json.loads(omniguard_raw_response)
             
             # Validate schema structure - check for basic required keys (always needed)
-            basic_required_keys = ["conversation_id", "analysisSummary", "compliant"]
+            basic_required_keys = ["conversation_id", "analysis", "compliant"]
             for key in basic_required_keys:
                 if key not in parsed_response:
                     logger.error(f"Missing required key in OmniGuard response: {key}")
@@ -188,7 +188,7 @@ def process_omniguard_result(omniguard_result, user_prompt, context):
                     st.session_state["schema_violation"] = True
             
             # Extract top-level fields to store in session state
-            analysis_summary = parsed_response.get("analysisSummary", "")
+            analysis_summary = parsed_response.get("analysis", "")
             conversation_id = parsed_response.get("conversation_id", "")
             action = parsed_response.get("response", {}).get("action")
             
@@ -236,7 +236,7 @@ def process_omniguard_result(omniguard_result, user_prompt, context):
             assistant_check_parsed = json.loads(assistant_check)
             
             # Validate the schema of agent check result - check for basic required keys
-            basic_required_keys = ["conversation_id", "analysisSummary", "compliant"]
+            basic_required_keys = ["conversation_id", "analysis", "compliant"]
             for key in basic_required_keys:
                 if key not in assistant_check_parsed:
                     logger.error(f"Missing required key in agent check: {key}")
