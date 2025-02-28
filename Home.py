@@ -21,37 +21,30 @@ def render_system_flow() -> None:
 
         from components.prompts import omniguard_configuration
 
-        with st.popover("View Complete Configuration XML"):
+        with st.popover("View Default Configuration"):
             st.code(omniguard_configuration, language="xml")
 
         st.markdown(
             """
-        ### Configuration Structure
+        **Configuration Structure:**
         
-        1. **Purpose Definition**: Establishes OmniGaurd as an independent **Safety Layer**, solely responsible for safety evaluation.
+        1. **Purpose**: OmniGuard acts as a moderation layer that safeguards LLM interactions by evaluating both user and assistant messages against a defined set of rules.
         
-        2. **Instruction Set**: Defines operational parameters such as:
-           - Message evaluation methodology
-           - Ambiguity resolution procedures
-           - Response generation protocols
-           - Conversation flow maintenance
+        2. **Instruction Set**: Specifies operational directives:
+           - Operate exclusively as a conversational moderation system.
+           - Analyze every incoming message by breaking down context, tone, and implications.
+           - Compare content against active safety rules.
+           - Request clarification in ambiguous cases.
         
-        3. **Rule Groups**: Organizes explicit safety rules into categories:
-           - **Content Moderation (CM)**: Detects and manages harmful content.
-           - **Data Leakage Prevention (DLP)**: Safeguards sensitive information.
-           - **Adversarial Attacks (AA)**: Counters prompt injections, jailbreaks, and similar threats.
+        3. **Rule Groups**: Categorizes explicit safety rules into groups such as:
+           - Harmful Code & Exploits
+           - Harmful Instructions
+           - Critical Infrastructure Attacks
+           - Adversarial Attacks
         
-        Each rule includes examples of user violations and potential assistant failures, classified by severity.
-        OmniGaurd leverages explicitly configurable policy sets, allowing custom safety configurations to meet specific application requirements 
-        and regulatory standards.
+        Each rule includes examples of disallowed interactions and potential failures, ensuring that customizable safety policies are rigorously enforced.
         """
         )
-
-    st.markdown(
-        """Note: OmniGaurd, acting as the **Safety Layer**, is architecturally isolated from AI Agents.
-It exclusively handles safety evaluation, ambiguity resolution, and protective measures, ensuring that downstream agents can focus 
-entirely on their core functionalities."""
-    )
 
 
 def render_implementation_details() -> None:
@@ -59,9 +52,8 @@ def render_implementation_details() -> None:
     with st.expander("API & Integration", expanded=False):
         st.markdown(
             """
-        ## API & Integration
         
-        ### Message Format
+        **Message Format**
         
         ```json
         {
@@ -74,7 +66,7 @@ def render_implementation_details() -> None:
         }
         ```
         
-        ### Rule Definition Structure
+        **Rule Definition Structure**
         
         ```json
         {
@@ -92,21 +84,22 @@ def render_implementation_details() -> None:
         }
         ```
         
-        ### Response Format
+        **Response Format**
         
         ```json
         {
-          "conversation_id": "uuid-string",
-          "analysis": "Brief explanation of evaluation",
-          "compliant": true,
+          "conversation_id": "string",
+          "analysis": "string",
+          "compliant": boolean,
           "response": {
-            "action": "RefuseUser",
-            "RefuseUser": "Safety explanation response"
+            "action": "RefuseUser | RefuseAssistant",
+            "RefuseUser": "string",
+            "RefuseAssistant": "string"
           }
         }
         ```
         
-        ### Integration Patterns
+        **Integration Patterns**
         
         **Basic Request Flow:**
         
@@ -117,12 +110,6 @@ def render_implementation_details() -> None:
         5. Send the conversation with the Agent response back to OmniGaurd for final safety validation.
         6. Deliver the final, possibly sanitized, response to the user.
             
-        **Advanced Integration Options:**
-            
-        - Batch evaluation for high-throughput applications.
-        - Tiered evaluation with lightweight pre-screening.
-        - Custom rule injection for domain-specific safety requirements.
-        - Feedback loop integration for continuous improvement.
         """
         )
 
@@ -150,7 +137,6 @@ def render_dataset() -> None:
         }
 
         if stats_data:
-            st.markdown("### Dataset Statistics")
 
             stats_table = {
                 "Metric": [
@@ -244,25 +230,26 @@ def render_mit_license() -> None:
         """
         ## MIT License
 
-        Copyright (c) 2023 OmniGuard Contributors
+        Copyright (c) 2025 OmniGuard Contributors
 
         Permission is hereby granted, free of charge, to any person obtaining a copy
-        of this software and associated documentation files (the "Software"), to deal
+        of this software and associated documentation files (the “Software”), to deal
         in the Software without restriction, including without limitation the rights
         to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
         copies of the Software, and to permit persons to whom the Software is
         furnished to do so, subject to the following conditions:
 
-        The above copyright notice and this permission notice shall be included in all
-        copies or substantial portions of the Software.
+        1. The above copyright notice and this permission notice shall be included in
+        all copies or substantial portions of the Software.
 
-        THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+        2. THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
         IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
         FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
         AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
         LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-        OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-        SOFTWARE.
+        OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+        THE SOFTWARE.
+
         """
     )
 
@@ -274,31 +261,22 @@ def render_concise_overview() -> None:
     operating independently from AI agents. It evaluates user interactions based on intent, linguistic nuances, and context,
     while maintaining a distinct separation from downstream AI functionalities.
     """
-    concise_overview = (
-        "OmniGaurd, serving as the **Safety Layer**, ensures that all interactions are rigorously analyzed through semantic evaluation. "
-        "It focuses on user intent, subtle language nuances, and ambiguous contexts, applying explicit safety rules and prompting for clarification as needed. "
-        "This separation allows AI agents to concentrate on their primary tasks without the overhead of safety processing."
-    )
     with st.expander("What is OmniGuard?", expanded=False):
         st.markdown(
-        "OmniGaurd, serving as the **Safety Layer**, ensures that all interactions are rigorously analyzed through semantic evaluation. "
-        "It focuses on user intent, subtle language nuances, and ambiguous contexts, applying explicit safety rules and prompting for clarification as needed. "
-        "This separation allows AI agents to concentrate on their primary tasks without the overhead of safety processing."
-    )
+            "**OmniGaurd** is a **Safety Layer** that ensures that all interactions are rigorously analyzed through semantic evaluation. "
+            "It focuses on user intent, subtle language nuances, and ambiguous contexts, applying explicit safety rules and prompting for clarification as needed. "
+            "This separation allows AI agents to concentrate on their primary tasks without the overhead of safety processing.\n\n"
+            "> Note: OmniGaurd will perform well against most attacks, but it is not meant to be seen as a complete AI safety solution. Rather, it offloads rigorous safety evaluation to dedicated models, ensuring that downstream agents remain optimized for their core tasks without the burden of safety tuning."
+        )
 
 
 def render_key_features() -> None:
     """Generate a markdown list of key features for the **Safety Layer** system.
-
-    Key Features:
-      - **Context-Aware Analysis:** Evaluates messages by analyzing context, intent, and linguistic nuances.
-      - **Reasoning-Driven Safety Enforcement:** Leverages thorough semantic evaluation to enforce explicitly configurable safety policies.
-      - **Clarification-Seeking Mode:** Actively prompts users to clarify ambiguous inputs to ensure robust safety.
-    """
+"""
     key_features = (
-        "- **Context-Aware Analysis:** Evaluates messages based on context, user intent, and subtle language cues.\n"
-        "- **Reasoning-Driven Safety Enforcement:** Implements configurable safety policies through comprehensive semantic analysis.\n"
-        "- **Clarification-Seeking Mode:** Proactively requests additional detail when inputs are vague or ambiguous."
+        "- **Context Aware Analysis:** Evaluates entire conversations based on context, user intent, and subtle language cues.\n"
+        "- **Reasoning Driven Safety Enforcement:** Implements configurable safety policies through comprehensive semantic analysis.\n"
+        "- **Clarification Seeking:** Proactively requests additional detail when inputs are vague or ambiguous."
     )
     with st.expander("Core Capabilities", expanded=False):
         st.markdown(key_features)
@@ -308,8 +286,6 @@ def render_use_cases() -> None:
     """Render practical use cases focused on technical implementation scenarios."""
     with st.expander("Implementation Scenarios", expanded=False):
         st.markdown("""
-        ## Potential Use Cases
-        
         - **Enterprise AI Deployment**: Integrate OmniGaurd as the **Safety Layer** in customer-facing AI systems.
         - **Educational Platforms**: Establish moderated and secure learning environments with AI assistants.
         - **Content Moderation**: Support human moderators by employing a dedicated **Safety Layer** for content screening.
@@ -319,29 +295,37 @@ def render_use_cases() -> None:
 
 
 def render_dataset_applications() -> None:
-    """Render section about dataset applications for research."""
+    """Render dataset applications section for research."""
     st.markdown("---")
     with st.expander("Using This Dataset", expanded=False):
-        st.markdown("""
-        ## Using This Dataset
-        
-        We encourage researchers and developers to leverage this dataset to:
-        
-        ### Train Your Own Models
+        st.markdown(
+            """
+        **Train Your Own Models**
         - Build specialized safety rules for targeted industries.
-        - Develop efficient, context-aware safety classifiers.
+        - Develop efficient, context aware safety classifiers.
         - Create distilled models focused on safety enforcement.
-        
-        ### Analyze Failure Patterns
+
+        **Analyze Failure Patterns**
         - Identify vulnerabilities in current safety systems.
         - Explore novel attack vectors and develop robust defenses.
         - Understand the limitations of existing safety approaches.
-        
-        ### Benchmark Safety Systems
-        - Compare different implementations of the **Safety Layer**.
+
+        **Benchmark Safety Systems**
+        - Compare different solutions effectiveness to the OmniGuard Safety Layer.
         - Evaluate robustness against emerging adversarial threats.
         - Track performance improvements over time.
+
+        ---
+
+        **Research Vectors**
+
+        When publishing findings based on OmniGuard data:
+        1. Cite the dataset.
+        2. Contribute your findings to the community.
+        3. Inform us of your work for potential feature highlights.
+
         """)
+
     
     with st.expander("Dataset Example", expanded=False):
         html_table = """
@@ -416,115 +400,12 @@ def render_dataset_applications() -> None:
         
         st.markdown(
             """
-Note that in the CSV format:
+        Note that in the CSV format:
 
-* Complex nested objects like `conversation` and `metadata` are serialized as JSON strings.
-* This preserves all data while ensuring compatibility with CSV.
-* When processing the CSV, you may need to parse these JSON fields to extract nested information.
-"""
-        )
-
-
-def render_research_opportunities() -> None:
-    """Render information about research opportunities with the **Safety Layer**.
-    
-    This function outlines potential research directions using the **Safety Layer** platform and provides guidance on how researchers 
-    can contribute and cite the project.
-    """
-    with st.expander("Research Vectors", expanded=False):
-        st.markdown(
-            """
-            ### Research Repositories & Papers
-            
-            Researchers are encouraged to leverage this dataset. When publishing findings based on OmniGuard data:
-            1. Cite the dataset.
-            2. Consider contributing your findings to the community.
-            3. Inform us of your work for potential feature highlights.
-            
-            ### Specific Research Directions
-            
-            #### 1. AI Safety & Alignment
-            - **Intent Recognition:** Develop models that distinguish benign queries from harmful requests.
-            - **Attack Vector Analysis:** Examine patterns in successful versus failed prompt injections.
-            - **Model Scaling Laws:** Investigate how safety performance correlates with model size and training data.
-            
-            #### 2. Security & Robustness
-            - **Lightweight Safety Modules:** Design efficient classifiers suitable for edge devices.
-            - **Defense-in-Depth:** Evaluate the effectiveness of layered safety mechanisms.
-            - **Safety-Utility Frontier:** Explore the trade-off between protection and utility.
-            
-            #### 3. Human-AI Interaction
-            - **Circumvention Patterns:** Analyze strategies used to bypass safety measures.
-            - **Refusal UX:** Innovate clearer explanations for content refusals.
-            - **Trust Calibration:** Develop approaches to maintain user trust while enforcing strict safety benchmarks.
-            
-            ### Getting Started
-            
-            1. **Download the Dataset:** Use the download button provided in the Dataset tab.
-            2. **Explore the GitHub Repository:** Access sample code and further documentation.
-            3. **Join the Community:** Engage with fellow researchers via our Discord server.
-            """
-        )
-
-
-def render_model_training_insights() -> None:
-    """Render insights about training models with the **Safety Layer** dataset.
-    
-    This function details how the dataset can be used to train and refine AI safety models.
-    """
-    with st.expander("Training Models with the OmniGuard Dataset", expanded=False):
-        st.markdown(
-            """
-            ## Training Models with the OmniGuard Dataset
-            
-            The OmniGuard dataset is particularly valuable for:
-            
-
-            
-            ### Fine tuning and Distillation Experiments
-            - Developing smaller, specialized safety modules distilled from larger models.
-            - Optimizing for speed and deployment in resource-constrained environments.
-            - Comparing different architectures and safety approaches.
-            
-            ### Few-shot Learning Research
-            - Determining the minimal examples needed for effective safety training.
-            - Identifying which examples are most critical for model learning.
-            - Assessing generalization to unforeseen attack types.
-            
-
-            """
-        )
-
-
-def render_failure_analysis() -> None:
-    """Render information about analyzing failure modes in AI safety.
-    
-    This function discusses how the **Safety Layer** can be used to study and understand failure scenarios in safety enforcement.
-    """
-    with st.expander("Why Models Fail: Analysis Opportunities", expanded=False):
-        st.markdown(
-            """
-            ## Why Models Fail: Analysis Opportunities
-            
-            The dataset documents various failure modes, including:
-            
-            ### Adversarial Attack Patterns
-            - Identifying the most effective attack techniques.
-            - Tracking the evolution of attack strategies.
-            - Exposing blind spots in existing safety measures.
-            
-            ### Context Misunderstanding
-            - Analyzing instances where subtle context cues are missed.
-            - Understanding how ambiguity leads to errors.
-            - Evaluating the limits of context window sizes.
-            
-            ### False Positives/Negatives
-            - Investigating cases of overly cautious refusals versus missed harmful content.
-            - Studying the impact of prompt formulation on safety outcomes.
-            
-            > **Research Challenge:** Can you devise a system that minimizes false positives while maintaining strong protection?
-            """
-        )
+        * Complex nested objects like `conversation` and `metadata` are serialized as JSON strings.
+        * This preserves all data while ensuring compatibility with CSV.
+        * When processing the CSV, you may need to parse these JSON fields to extract nested information.
+        """)
 
 
 def render_how_to_contribute() -> None:
@@ -551,7 +432,7 @@ def render_how_to_contribute() -> None:
             ### 4. Share Your Research
             If you utilize the **Safety Layer** dataset in your work, let us know so we can highlight your contributions.
             """
-        )
+            )
         
         st.markdown(
             """
@@ -585,8 +466,8 @@ def main() -> None:
     st.title("OmniGuard")
     st.markdown("*A reasoning-based safety layer underpinned by an open research dataset*")
 
-    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
-        "Overview", "Technical Details", "Dataset", "Research", "Contribute", "License" 
+    tab1, tab2, tab3, tab4, tab5 = st.tabs([
+        "Overview", "Technical Details", "Dataset", "Contribute", "License"
     ])
 
     with tab1:
@@ -604,15 +485,10 @@ def main() -> None:
         render_dataset_applications()
 
     with tab4:
-        render_research_opportunities()
-        render_model_training_insights()
-        render_failure_analysis()
-
-    with tab5:
         render_how_to_contribute()
         render_donation()
 
-    with tab6:
+    with tab5:
         render_mit_license()
 
 
