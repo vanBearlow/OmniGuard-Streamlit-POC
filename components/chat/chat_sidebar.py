@@ -2,40 +2,22 @@ import streamlit as st
 from typing import Dict, Any, Protocol
 
 #  *** Documentation Content ***
-GETTING_STARTED_DOC = """
-### Make sure you're logged in and profile is complete to get credit for your contributions!
-
-### 1. Chat with OmniGuard
-Simply type your message and press Enter. Each response will include:
-- OmniGuard's classification
-- Agent's response
+GETTING_STARTED_DOC = ("""
+### 1. Profile (Optional)
+Sign in and visit the **Profile** page to add your information (name, socials) and receive credit for your contributions in the public dataset.
 
 ### 2. Review & Feedback
 After each response, you can:
 - View the full details by clicking the expanders
-- Report incorrect classifications using 👎
+- Report Agent responses for Human Review using the 👎 button
 
-### 3. Configuration 
-In the Configuration tab, you can customize:
-
-### OmniGuard Settings
-- **Model**: Fixed to `o3-mini-2025-01-31`
-- **Reasoning Effort**: Choose between low, medium, or high
-- **Configuration Settings**: Customize organization requirements
-
-### Agent Settings
-- **Model Selection**: Choose from:
-  - gpt-4o-2024-05-13
-  - gpt-4o-mini-2024-07-18
-  - o1-2024-12-17
-  - o3-mini-2025-01-31
-- **Model Parameters**: 
-  - For O1/O3 models: Reasoning effort (low/medium/high)
-  - For GPT models: Temperature (0.0 - 2.0)
-
-### 4. Profile (Optional)
-Sign in and visit the **Profile** page to add your information (name, socials) and receive credit for your contributions in the public dataset.
+### 3. Current Model Settings
+- OmniGuard is currently using the `o3-mini-2025-01-31` model.
+- Reasoning Effort is set to `low`.
+- Agent is set to `gpt-4o-2024-08-06`.
+- Temperature is set to `1`.
 """
+)
 
 def render_documentation() -> None:
     """Render the documentation section in an expander."""
