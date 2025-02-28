@@ -85,14 +85,13 @@ def handle_profile_form():
         linkedin= existing_data.get("linkedin", "")
     )
 
-    st.subheader("Your Profile")
     with st.form("profile_form"):
         # Show contributor_id
         
-        name_input    = st.text_input("Name:", value=default_info.name)
-        x_input       = st.text_input("X/Twitter:", value=default_info.x)
-        discord_input = st.text_input("Discord:", value=default_info.discord)
-        linkedin_input= st.text_input("LinkedIn:", value=default_info.linkedin)
+        name_input    = st.text_input("Name:", value=default_info.name, placeholder="Johnny", help="Your name as you want it to appear on the leaderboard and in the public dataset.")
+        x_input       = st.text_input("X:", value=default_info.x, placeholder="Handle123", help="Your X handle.")
+        discord_input = st.text_input("Discord:", value=default_info.discord, placeholder="Name#1234", help="Your Discord handle.")
+        linkedin_input= st.text_input("LinkedIn:", value=default_info.linkedin, placeholder="https://www.linkedin.com/in/your-profile/", help="Your LinkedIn profile URL.")
         st.caption(f"**Your Contributor ID:** `{contributor_id}`")
 
         if st.form_submit_button("Save Profile"):
@@ -132,6 +131,7 @@ def main():
         return
 
     handle_profile_form()
+    auth()
 
 if __name__ == "__main__":
     main()

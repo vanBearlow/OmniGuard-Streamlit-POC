@@ -76,27 +76,15 @@ def display_conversation(conversation: Dict[str, Any]) -> None:
         votes: Dict[str, Any] = meta_json.get("votes", {})
         if votes:
             st.markdown("**Current Votes:**")
-            col1, col2, col3, col4, col5 = st.columns(5)
+            col1, col2, col3, col4 = st.columns(4)
             with col1:
-                st.metric("Total Votes", f"{votes.get('count', 0)}/100")
+                st.markdown(f"**Total Votes**\n{votes.get('count', 0)}/100")
             with col2:
-                st.metric("User Violations", votes.get("user_violations", 0))
+                st.markdown(f"**User Violation**\n{votes.get('user_violations', 0)}")
             with col3:
-                st.metric("Agent Violations", votes.get("assistant_violations", 0))
+                st.markdown(f"**Assistant Violation**\n{votes.get('assistant_violations', 0)}")
             with col4:
-                st.metric("Agent Refusals", votes.get("agent_refusals", 0))
-            with col5:
-                st.metric("Compliant Votes", votes.get("compliant_votes", 0))
-
-            verifier = conversation.get("verifier", "pending")
-            if verifier == "human":
-                st.toast("This conversation has been verified by human review!")
-                compliant_status = "Compliant" if conversation.get("compliant") else "Non-Compliant"
-                st.info(f"Final Classification: {compliant_status}")
-            elif verifier == "omniguard":
-                st.info("This conversation was verified by OmniGuard.")
-            else:
-                st.warning("This conversation is pending human review.")
+                st.markdown(f"**Compliant / Non-Harmful**\n{votes.get('compliant_votes', 0)}")
 
     # --- MESSAGES SECTION ---
     with st.expander("Show Messages"):
@@ -204,10 +192,11 @@ def main() -> None:
     """
     with st.sidebar:
         st.markdown("# Human Review Dashboard")
-        st.info("Review interactions flagged for potential errors.")
-        if st.button("Refresh Dashboard"):
-            st.rerun()
-
+        st.info("Review Interactions Reported as Harmful / Non-Compliant")
+        #if st.button("Refresh Dashboard"):
+            #st.rerun()
+        st.markdown("---")
+        st.markdown("Will not be visible to the public. Maybe")
     conversations = load_flagged_conversations()
     if not conversations:
         st.info("No conversations require review at this time.")
