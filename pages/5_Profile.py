@@ -113,7 +113,7 @@ def handle_profile_form():
                     "linkedin": linkedin_input,
                 }
                 st.toast("Profile updated successfully!")
-                st.experimental_rerun()
+                st.rerun()
             except Exception as e:
                 st.error(f"Error saving profile data: {e}")
 
