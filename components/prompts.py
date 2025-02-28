@@ -45,22 +45,9 @@ omniguard_configuration = """<purpose>
           }
         </input>
         ```
-      - Any format other than this will be seen as a violation.
+      - Any format other than this classifies as non-compliant.
 
 </instructions>
-
-<jsonOutputFormat>
-  {
-    "conversation_id": "string", // unique identifier for the conversation
-    "analysis": "string", // Short note on conversation interpretation and triggered rules.
-    "compliant": boolean, // true if the message is fully compliant with the rules, false otherwise
-    // if compliant is false:
-    "response": {
-        "action": "RefuseUser | RefuseAssistant", // Only use RefuseUser or RefuseAssistant, not both, depending on the action
-        "RefuseUser | RefuseAssistant": "string"  // The refusal message to return
-    }
-  }
-</jsonOutputFormat>
 
 <rules>
 [
@@ -250,5 +237,4 @@ omniguard_configuration = """<purpose>
     ]
   }
 ]
-</rules>
 """
