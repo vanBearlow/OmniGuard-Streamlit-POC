@@ -12,10 +12,10 @@ sitename = "OmniGuard"
 
 def verify_configuration():
     """
-    Verify that the configuration values are properly set in session state.
+    Verify that the developer prompt values are properly set in session state.
     """
-    if not st.session_state.get("omniguard_configuration"):
-        logger.error("OmniGuard configuration is missing or empty")
+    if not st.session_state.get("omnigaurd_developer_prompt"):
+        logger.error("OmniGuard developer prompt is missing or empty")
         return False
     return True
 
@@ -42,11 +42,11 @@ def omniguard_check(pending_assistant_response=None):
         conversation_context = format_conversation_context(conversation)
         
         if not verify_configuration():
-            raise Exception("Invalid OmniGuard configuration state")
+            raise Exception("Invalid OmniGuard developer prompt state")
 
-        omniguard_config = st.session_state.get("omniguard_configuration")
+        omniguard_config = st.session_state.get("omnigaurd_developer_prompt")
         if not omniguard_config:
-            raise Exception("OmniGuard configuration is missing")
+            raise Exception("OmniGuard developer prompt is missing")
         omniguard_evaluation_input = [
             {"role": "developer", "content": omniguard_config},
             {"role": "user", "content": conversation_context}

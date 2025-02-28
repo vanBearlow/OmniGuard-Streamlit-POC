@@ -25,7 +25,7 @@ from components.banner import show_alpha_banner
 # Constants
 PAGE_ICON = " :shield:"
 
-# Page configuration
+# Page developer prompt
 st.set_page_config(page_title="OmniGuard Chat", page_icon=PAGE_ICON)
 
 # Show alpha banner

@@ -19,14 +19,14 @@ def render_system_flow() -> None:
     with st.expander("System Architecture", expanded=False):
         st.markdown(system_flow_description)
 
-        from components.prompts import omniguard_configuration
+        from components.prompts import omnigaurd_developer_prompt
 
-        with st.popover("View Default Configuration"):
-            st.code(omniguard_configuration, language="xml")
+        with st.popover("View Default Developer Prompt"):
+            st.code(omnigaurd_developer_prompt, language="xml")
 
         st.markdown(
             """
-        **Configuration Structure:**
+        **Developer Prompt Structure:**
         
         1. **Purpose**: OmniGuard acts as a moderation layer that safeguards LLM interactions by evaluating both user and assistant messages against a defined set of rules.
         
@@ -58,7 +58,7 @@ def render_implementation_details() -> None:
         ```json
         {
           "role": "developer", 
-          "content": {"type": "text", "text": "<CONFIGURATION>"}
+          "content": {"type": "text", "text": "<DEVELOPER PROMPT>"}
         }
         {
           "role": "user", 
@@ -441,7 +441,7 @@ def render_how_to_contribute() -> None:
             Your interactions help build a valuable public dataset, but you retain control over your data:
             
             - **Public Contribution:** By default, your interactions support public research in AI safety.
-            - **Private Usage:** Copy the configuration locally to work with any LLM without contributing your data.
+            - **Private Usage:** Copy the developer prompt locally to work with any LLM without contributing your data.
             
             I ensure that no personally identifying information is stored in the public dataset. Other than Name and social media information that you provide.
             """

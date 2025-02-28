@@ -1,11 +1,11 @@
 import streamlit as st
-from components.prompts import agent_system_prompt, omniguard_configuration
+from components.prompts import agent_system_prompt, omnigaurd_developer_prompt
 
 def ensure_config_initialized():
-    """Ensure configuration values are properly initialized."""
+    """Ensure developer prompt values are properly initialized."""
     # Always ensure these exist with proper values
-    if "omniguard_configuration" not in st.session_state:
-        st.session_state.omniguard_configuration = omniguard_configuration
+    if "omnigaurd_developer_prompt" not in st.session_state:
+        st.session_state.omnigaurd_developer_prompt = omnigaurd_developer_prompt
     if "agent_system_prompt" not in st.session_state:
         st.session_state.agent_system_prompt = agent_system_prompt
 
@@ -27,7 +27,7 @@ def init_session_state():
     if "temperature" not in st.session_state:
         st.session_state.temperature = 1.0
     
-    # Site Configuration
+    # Site Developer Prompt
     if "site_url" not in st.session_state:
         st.session_state.site_url = "https://omniguard.streamlit.app"
     if "site_name" not in st.session_state:
