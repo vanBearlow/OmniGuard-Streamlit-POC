@@ -199,12 +199,12 @@ def render_donation() -> None:
             """
         OmniGuard is an open-source project dedicated to advancing AI safety. Your contributions directly support:
         
-        - 🏆 75% - Bounties 
-        - 🌐 25% - API (Chat)
+        - 🏆 90% - Bounties 
+        - 🌐 10% - API (Chat)
         """
         )
         
-        wallet_address = "TBA5gUVLRvFfLMdWEQeRNuBKTJgq6xwKrB"  # Example USDT wallet address
+        wallet_address = "SAMPLEADDRESS"  # Example USDT wallet address
         st.markdown("## Donation Wallet")
         st.code(wallet_address, language=None)
         st.info("⚠️ Please only send USDT on the Tron (TRC20) network to this address.")
