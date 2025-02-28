@@ -193,8 +193,6 @@ def main() -> None:
     with st.sidebar:
         st.markdown("# Human Review Dashboard")
         st.info("Review Interactions Reported as Harmful / Non-Compliant")
-        #if st.button("Refresh Dashboard"):
-            #st.rerun()
         st.markdown("---")
         st.markdown("Will not be visible to the public. Maybe")
     conversations = load_flagged_conversations()

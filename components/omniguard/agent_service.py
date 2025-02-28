@@ -2,7 +2,7 @@ import time
 import logging
 import streamlit as st
 import requests.exceptions
-from openai                      import APIError, RateLimitError
+from openai import APIError, RateLimitError
 from components.omniguard.client import get_openai_client, get_model_params
 
 

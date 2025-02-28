@@ -18,19 +18,18 @@ from components.conversation_utils import build_conversation_json, format_conver
 from components.chat.chat_history import display_messages, display_debug_expanders
 from components.chat.chat_sidebar import setup_sidebar
 from components.chat.user_input import process_user_message, get_user_input
-from components.chat.session_management import init_chat_session_state, reset_chat_session_state
+from components.chat.session_management import init_chat_session_state, reset_chat_session_state, generate_conversation_id
 from components.init_session_state import init_session_state
 from components.banner import show_alpha_banner
 
 # Constants
-PAGE_ICON = " :shield:"  # Shield emoji for visual appeal
+PAGE_ICON = " :shield:"
 
 # Page configuration
 st.set_page_config(page_title="OmniGuard Chat", page_icon=PAGE_ICON)
 
 # Show alpha banner
 show_alpha_banner()
-
 
 def update_conversation_context():
     """
@@ -68,7 +67,7 @@ def main():
         process_user_message(
             user_input,
             st.session_state,
-            lambda x: x,  # placeholder for a generate_id function not used now
+            generate_conversation_id,
             update_conversation_context
         )
     

@@ -1,14 +1,14 @@
 import logging
 import streamlit as st
-from typing                                 import Dict, Any, Optional
+from typing import Dict, Any, Optional
 from components.omniguard.omniguard_service import omniguard_check, process_omniguard_result
 
 
 
 # *** CORE PROCESSING ***
 def process_user_message(
-    user_input:        str,
-    session_state:     Dict[str, Any],
+    user_input:str,
+    session_state: Dict[str, Any],
     generate_conversation_id:  callable,
     update_conversation_context: callable
 ) -> None:
@@ -60,7 +60,7 @@ def handle_omniguard_check(user_input: str, session_state: Dict[str, Any]) -> No
         logging.exception("OmniGuard service exception")
         omniguard_response = {
             "response": {
-                "action":          "RefuseUser",
+                "action":"RefuseUser",
                 "RefuseUser": "Critical safety system unavailable - contact support",
             }
         }
@@ -86,7 +86,7 @@ def get_user_input() -> Optional[str]:
     """
     return st.chat_input(
         "Type your message here",
-        max_chars  = 20000,
-        key        = "chat_input",
+        max_chars = 20000,
+        key = "chat_input",
     )
 #
