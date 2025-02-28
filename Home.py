@@ -215,7 +215,7 @@ def render_end_note() -> None:
     st.markdown("""
     ---
     
-    > The future of AI safety doesn't just depend on big labs. It requires a community of researchers, developers, and users working together to identify risks and build better solutions. Join me in making AI safer, one interaction at a time. Humanity can not afford AI safety debt.`
+    > The future of AI safety doesn't just depend on big labs. It requires a community of researchers, developers, and users working together to identify risks and build better solutions. Join me in making AI safer, one interaction at a time. Humanity can not afford AI safety debt.
     """)
 
 
