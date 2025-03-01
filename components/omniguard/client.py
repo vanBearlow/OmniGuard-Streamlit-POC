@@ -26,7 +26,6 @@ def get_openai_client():
     """
     try:
         return OpenAI(
-            base_url="https://openrouter.ai/api/v1",
             api_key=get_api_key()
         )
     except Exception as e:

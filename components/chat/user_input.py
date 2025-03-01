@@ -53,7 +53,7 @@ def handle_omniguard_check(user_input: str, session_state: Dict[str, Any]) -> No
         None: Modifies session state directly based on safety check results
     """
     try:
-        with st.spinner("OmniGuard (User)...", show_time=True):
+        with st.spinner("Compliance Layer (User)", show_time=True):
             omniguard_response = omniguard_check()
     except Exception as ex:
         st.error(f"Safety system failure: {ex}")

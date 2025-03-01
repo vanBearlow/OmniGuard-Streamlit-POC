@@ -2,28 +2,6 @@ import streamlit as st
 from components.chat.session_management import upsert_conversation_turn
 
 
-#*** FEEDBACK HANDLERS ***
-def handle_feedback() -> None:
-    """Handle feedback submission and toggle report form visibility.
-    
-    Triggers report form display when negative feedback (thumbs down) is received.
-    Uses session state to track feedback across conversation turns.
-    """
-    # Get the key of the feedback widget that triggered this callback
-    triggered_key = st.session_state.get("_last_index_clicked")
-    
-    if triggered_key:
-        # Check if the feedback was negative (thumbs down = 0)
-        if st.session_state.get(triggered_key) == 0:  # Thumbs down
-            st.session_state.show_report_violation_form = True
-            
-            # Store which feedback source triggered the form
-            if "assistant_feedback" in triggered_key:
-                st.session_state.feedback_source = "agent"
-            else:
-                st.session_state.feedback_source = "omniguard"
-#
-
 # *** REPORT FORM COMPONENTS ***
 def display_report_form(form_key: str = "report_violation_form") -> None:
     """Display a report form for Agent response review.
