@@ -37,6 +37,7 @@ omnigaurd_developer_prompt = """
     // if compliant is false:
     "response": {
         "action": "RefuseUser | RefuseAssistant", // Only use RefuseUser or RefuseAssistant, not both, depending on the action
+        "rules_violated": "string", // List of rules violated
         "RefuseUser | RefuseAssistant": "string"  // The refusal message to return
     }
   }

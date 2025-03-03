@@ -99,7 +99,7 @@ def display_conversation(conversation: Dict[str, Any]) -> None:
         else:
             # If user not logged in or missing contributor_id, can't vote
             if not current_user_id:
-                st.warning("Please log in to cast a vote.")
+                st.warning("Please log in to cast a vote. Visit your [Profile](/profile) for login options.")
             else:
                 user_violation: bool = st.checkbox("User Content Causes Violation", value=False)
                 assistant_violation: bool = st.checkbox(
@@ -181,16 +181,20 @@ def display_conversation(conversation: Dict[str, Any]) -> None:
 
 
 def main() -> None:
-    """Render the Human Review Dashboard.
-    
-    Displays a list of conversations flagged for review and
-    provides an interface for reviewers to analyze and vote on them.
+    """Render the Human Review Dashboard if the user is logged in.
+
+    Checks login status; if not logged in, shows a warning.
     """
+    if not st.session_state.get("contributor_id"):
+        st.warning("Please log in to access Human Review Dashboard. Visit your [Profile](/profile) for login options.")
+        return
+
     with st.sidebar:
         st.markdown("# Human Review Dashboard")
         st.info("Review Interactions Reported as Harmful / Non-Compliant")
         st.markdown("---")
         st.markdown("Will not be visible to the public. Maybe")
+
     conversations = load_flagged_conversations()
     if not conversations:
         st.info("No conversations require review at this time.")

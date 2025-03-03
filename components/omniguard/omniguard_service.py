@@ -69,10 +69,9 @@ def omniguard_check(pending_assistant_response=None):
     
     session.omniguard_input_message = omniguard_evaluation_input
     session.omniguard_raw_api_response = response
-
     session.omniguard_output_message = response.choices[0].message.content
 
-    return
+    return 
 
 
 
