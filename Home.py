@@ -36,7 +36,7 @@ def render_system_flow() -> None:
            - Compare content against active safety rules.
            - Request clarification in ambiguous cases.
         
-        3. **Rule Groups**: Categorizes explicit safety rules into groups such as:
+        3. **Rule Groups**: Categorizes explicit safety rules into groups such as: `too be updated`
            - Harmful Code & Exploits
            - Harmful Instructions
            - Critical Infrastructure Attacks
@@ -105,10 +105,10 @@ def render_implementation_details() -> None:
         
         1. Receive user message.
         2. Pass conversation context to OmniGaurd (**Compliance Layer**).
-        3. If non-compliant, display a refusal message.
-        4. If compliant, forward the message to the primary LLM.
-        5. Send the conversation with the Agent response back to OmniGaurd for final safety validation.
-        6. Deliver the final, possibly sanitized, response to the user.
+        3. If non-compliant, display the refusal message.
+        4. If compliant, forward the message to the Agent.
+        5. Send the conversation with the Agent response back to OmniGaurd for final safety evaluation.
+        6. Deliver the final, possibly modified, response to the user.
             
         """
         )
@@ -264,9 +264,9 @@ def render_concise_overview() -> None:
     with st.expander("What is OmniGuard?", expanded=False):
         st.markdown(
             "**OmniGaurd** is a **Compliance Layer** that ensures that all interactions are rigorously analyzed through semantic evaluation. "
-            "It focuses on user intent, subtle language nuances, and ambiguous contexts, applying explicit safety rules and prompting for clarification as needed. "
+            "It focuses on user intent, subtle language nuances, and ambiguous contexts, applying explicit rules and prompting for clarification as needed. "
             "This separation allows AI agents to concentrate on their primary tasks without the overhead of safety processing.\n\n"
-            "> Note: OmniGaurd will perform well against most attacks, but it is not meant to be seen as a complete AI safety solution. Rather, it offloads rigorous safety evaluation to dedicated models, ensuring that downstream agents remain optimized for their core tasks without the burden of safety tuning."
+            "> Note: OmniGaurd will perform well against most attacks, but it is not meant to be seen as a complete AI safety solution."
         )
 
 
@@ -275,8 +275,8 @@ def render_key_features() -> None:
 """
     key_features = (
         "- **Context Aware Analysis:** Evaluates entire conversations based on context, user intent, and subtle language cues.\n"
-        "- **Reasoning Driven Safety Enforcement:** Implements configurable safety policies through comprehensive semantic analysis.\n"
-        "- **Clarification Seeking:** Proactively requests additional detail when inputs are vague or ambiguous."
+        "- **Clarification Seeking:** Proactively requests additional detail when inputs are vague or ambiguous.\n"
+        "- **Beyond Static Guardrails:** OmniGuard doesn't rely on simple refusals, keyword matching, fixed moderation lists, nor does it prematurely end conversations. Instead, it uses sophisticated semantic evaluation, reasoning, and dynamic clarification requests to maintain contextually appropriate interactions."
     )
     with st.expander("Core Capabilities", expanded=False):
         st.markdown(key_features)
@@ -286,11 +286,10 @@ def render_use_cases() -> None:
     """Render practical use cases focused on technical implementation scenarios."""
     with st.expander("Implementation Scenarios", expanded=False):
         st.markdown("""
-        - **Enterprise AI Deployment**: Integrate OmniGaurd as the **Compliance Layer** in customer-facing AI systems.
-        - **Educational Platforms**: Establish moderated and secure learning environments with AI assistants.
-        - **Content Moderation**: Support human moderators by employing a dedicated **Compliance Layer** for content screening.
-        - **Healthcare Applications**: Ensure contextually appropriate responses in sensitive health scenarios.
-        - **Financial Services**: Maintain compliance and security using the **Compliance Layer** in AI-assisted interactions.
+        - **Content Moderation**: Moderate the content between users and AI agents.
+        - **Safety Enforcement**: Ensure that the Users and AI agents are not violating any safety rules.
+        - **Sensitive Data Protection**: Protect sensitive data from being leaked unintentionally.
+        - **Much More** - I'm curious to see how else Ftrit can be used.
         """)
 
 
@@ -416,9 +415,8 @@ def render_findings() -> None:
     with st.expander("Findings", expanded=False):
         st.markdown(
             """
-            You can enforce this at the prompt level to save tokens but could potentially open attack vector to multi-turn attacks that the model doesn't see forming. This does make the model much slower as conversation builds. but when considering tradeoffs for this challenge, I'd rather trade off response time over security.
-
-            It is possible to offload the models instructions to the json schema's descriptions. This is ideal because it lowers the attack vector of potentially overidding the instructions since they're not enforced at the prompt level. but this dramatically increases responses times. Messages containing the word "TEST" only take 60+ second round trips. when considering tradeoffs, I'd much rather have a usable experience that experiment with this feature not fully understanding its capabilities.
+            **Trade Off Considerations:**  
+            Offloading `<instructions>` from prompts into JSON schema descriptions can significantly reduce prompt injection risk by limiting attackers' ability to override instructions. However, my testing indicates this dramatically increases response latency (messages containing specific triggers, e.g., "TEST", exceed 60 seconds per round trip). Given these practical constraints, OmniGuard currently prioritizes usability and real-time interaction speeds over experimenting with potentially more secure but less practical configurations. Further research into optimizing this approach is encouraged.
             """
         )
 
@@ -433,6 +431,7 @@ def render_known_flaws() -> None:
             """
             - Very slow
             - Rule definitions could be simplified
+            - Still prone to prompt injection attacks, if done correctly.
             """
         )
 
@@ -477,6 +476,30 @@ def render_how_to_contribute() -> None:
         )
 
 
+def render_why_omniguard() -> None:
+    """Generate the 'Why OmniGuard?' section with exact provided text inside an expander."""
+    with st.expander("Why OmniGuard?", expanded=False):
+        st.markdown(
+            """
+            OmniGuard is not just another gaurdrail. It's a fundamental shift toward addressing inherent vulnerabilities in the Transformer architecture itself. Although the current Transformers may never be fully secure, OmniGuard provides the critical data researchers need to push these boundaries. By open-sourcing this data, we're empowering the AI safety community to evolve beyond superficial solutions.
+            """
+        )
+
+
+def render_security_bounty() -> None:
+    """Render the Security Bounty Program section with exact provided text."""
+    st.markdown(
+        """
+        ### 🏆 Security Bounty Program
+        OmniGuard openly invites security researchers and ethical hackers to test our Compliance Layer rigorously. We're offering a **$1,000 bounty** for anyone who can successfully bypass OmniGuard's protections, but there's a catch:
+        - **You must demonstrate a full system compromise**, meaning your harmful prompt must pass OmniGuard's two-step verification process (both inbound and outbound verification), reaching the assistant and resulting in harmful output.
+        - Simply breaking the moderation layer or the underlying model separately does not qualify; the exploit must succeed end-to-end.
+
+        This bounty encourages genuine breakthroughs that help advance our shared understanding of AI safety vulnerabilities.
+        """
+    )
+
+
 def main() -> None:
     """Initialize session state and render the **Compliance Layer** overview page.
 
@@ -490,7 +513,7 @@ def main() -> None:
     )
 
     init_session_state()
-    show_alpha_banner()
+
 
     st.title("OmniGuard")
     st.markdown("*A reasoning-based compliance layer underpinned by an open research dataset*")
@@ -500,6 +523,7 @@ def main() -> None:
     ])
 
     with tab1:
+        render_why_omniguard()
         render_concise_overview()
         render_key_features()
         render_use_cases()
@@ -517,11 +541,13 @@ def main() -> None:
 
     with tab4:
         render_how_to_contribute()
+        render_security_bounty()
         render_donation()
 
     with tab5:
         render_mit_license()
-
+        
+    show_alpha_banner()
 
 if __name__ == "__main__":
     main()
