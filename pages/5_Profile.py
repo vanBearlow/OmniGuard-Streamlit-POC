@@ -5,7 +5,6 @@ from typing import Dict, Any
 from components.auth import auth
 from components.chat.session_management import get_supabase_client
 from components.init_session_state import init_session_state
-from components.banner import show_alpha_banner
 
 @dataclass
 class ContributorInfo:
@@ -121,9 +120,6 @@ def main():
         page_title="User Profile",
         page_icon="👤"
     )
-
-    # Show alpha banner
-    show_alpha_banner()
 
     if not st.experimental_user.is_logged_in:
         st.error("You must be logged in to view or edit your profile.")

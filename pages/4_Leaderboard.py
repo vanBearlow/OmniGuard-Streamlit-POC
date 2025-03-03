@@ -8,9 +8,6 @@ import pytz
 
 st.set_page_config(page_title="Leaderboard", page_icon="🏆")
 
-# Show alpha banner
-show_alpha_banner()
-
 # Add a refresh button in the sidebar
 with st.sidebar:
     if st.button("Refresh"):

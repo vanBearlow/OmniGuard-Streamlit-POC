@@ -7,12 +7,12 @@ from components.init_session_state import init_session_state
 def render_system_flow() -> None:
     """Generate the system flow description for OmniGuard.
 
-    OmniGaurd serves as the **Safety Layer**, providing context-aware, reasoning-driven evaluation of each user-assistant interaction.
+    OmniGaurd serves as the **Compliance Layer**, providing context-aware, reasoning-driven evaluation of each user-assistant interaction.
     It semantically analyzes messages—focusing on user intent, linguistic nuances, and ambiguous contexts—and when uncertainty arises,
     OmniGaurd prompts for clarification to enforce explicitly configurable safety policies.
     """
     system_flow_description = (
-        "OmniGaurd, operating as the **Safety Layer**, evaluates every user-assistant interaction using context-aware and reasoning-driven analysis. "
+        "OmniGaurd, operating as the **Compliance Layer**, evaluates every user-assistant interaction using context-aware and reasoning-driven analysis. "
         "Messages are examined for user intent, subtle linguistic cues, and ambiguity. When ambiguity is detected, OmniGaurd promptly seeks clarification, "
         "thereby ensuring that customizable safety policies are strictly applied."
     )
@@ -104,7 +104,7 @@ def render_implementation_details() -> None:
         **Basic Request Flow:**
         
         1. Receive user message.
-        2. Pass conversation context to OmniGaurd (**Safety Layer**).
+        2. Pass conversation context to OmniGaurd (**Compliance Layer**).
         3. If non-compliant, display a refusal message.
         4. If compliant, forward the message to the primary LLM.
         5. Send the conversation with the Agent response back to OmniGaurd for final safety validation.
@@ -220,11 +220,11 @@ def render_end_note() -> None:
 
 
 def render_mit_license() -> None:
-    """Render the MIT license for the **Safety Layer**.
+    """Render the MIT license for the **Compliance Layer**.
 
     This function displays the full text of the MIT license
     that governs the use, modification, and distribution of
-    the **Safety Layer** concepts.
+    the **Compliance Layer** concepts.
     """
     st.markdown(
         """
@@ -233,7 +233,7 @@ def render_mit_license() -> None:
         Copyright (c) 2025 OmniGuard Contributors
 
         Permission is hereby granted, free of charge, to any person obtaining a copy
-        of this software and associated documentation files (the “Software”), to deal
+        of this software and associated documentation files (the "Software"), to deal
         in the Software without restriction, including without limitation the rights
         to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
         copies of the Software, and to permit persons to whom the Software is
@@ -242,7 +242,7 @@ def render_mit_license() -> None:
         1. The above copyright notice and this permission notice shall be included in
         all copies or substantial portions of the Software.
 
-        2. THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+        2. THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
         IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
         FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
         AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
@@ -255,15 +255,15 @@ def render_mit_license() -> None:
 
 
 def render_concise_overview() -> None:
-    """Generate a concise overview of the **Safety Layer**.
+    """Generate a concise overview of the **Compliance Layer**.
 
-    This overview distinguishes OmniGaurd as the **Safety Layer**, a context-aware moderator
+    This overview distinguishes OmniGaurd as the **Compliance Layer**, a context-aware moderator
     operating independently from AI agents. It evaluates user interactions based on intent, linguistic nuances, and context,
     while maintaining a distinct separation from downstream AI functionalities.
     """
     with st.expander("What is OmniGuard?", expanded=False):
         st.markdown(
-            "**OmniGaurd** is a **Safety Layer** that ensures that all interactions are rigorously analyzed through semantic evaluation. "
+            "**OmniGaurd** is a **Compliance Layer** that ensures that all interactions are rigorously analyzed through semantic evaluation. "
             "It focuses on user intent, subtle language nuances, and ambiguous contexts, applying explicit safety rules and prompting for clarification as needed. "
             "This separation allows AI agents to concentrate on their primary tasks without the overhead of safety processing.\n\n"
             "> Note: OmniGaurd will perform well against most attacks, but it is not meant to be seen as a complete AI safety solution. Rather, it offloads rigorous safety evaluation to dedicated models, ensuring that downstream agents remain optimized for their core tasks without the burden of safety tuning."
@@ -271,7 +271,7 @@ def render_concise_overview() -> None:
 
 
 def render_key_features() -> None:
-    """Generate a markdown list of key features for the **Safety Layer** system.
+    """Generate a markdown list of key features for the **Compliance Layer** system.
 """
     key_features = (
         "- **Context Aware Analysis:** Evaluates entire conversations based on context, user intent, and subtle language cues.\n"
@@ -286,11 +286,11 @@ def render_use_cases() -> None:
     """Render practical use cases focused on technical implementation scenarios."""
     with st.expander("Implementation Scenarios", expanded=False):
         st.markdown("""
-        - **Enterprise AI Deployment**: Integrate OmniGaurd as the **Safety Layer** in customer-facing AI systems.
+        - **Enterprise AI Deployment**: Integrate OmniGaurd as the **Compliance Layer** in customer-facing AI systems.
         - **Educational Platforms**: Establish moderated and secure learning environments with AI assistants.
-        - **Content Moderation**: Support human moderators by employing a dedicated **Safety Layer** for content screening.
+        - **Content Moderation**: Support human moderators by employing a dedicated **Compliance Layer** for content screening.
         - **Healthcare Applications**: Ensure contextually appropriate responses in sensitive health scenarios.
-        - **Financial Services**: Maintain compliance and security using the **Safety Layer** in AI-assisted interactions.
+        - **Financial Services**: Maintain compliance and security using the **Compliance Layer** in AI-assisted interactions.
         """)
 
 
@@ -311,7 +311,7 @@ def render_dataset_applications() -> None:
         - Understand the limitations of existing safety approaches.
 
         **Benchmark Safety Systems**
-        - Compare different solutions effectiveness to the OmniGuard Safety Layer.
+        - Compare different solutions effectiveness to the OmniGuard Compliance Layer.
         - Evaluate robustness against emerging adversarial threats.
         - Track performance improvements over time.
 
@@ -408,10 +408,39 @@ def render_dataset_applications() -> None:
         """)
 
 
+def render_findings() -> None:
+    """Render findings expander in the Overview tab.
+
+    Provides insights on tradeoffs.
+    """
+    with st.expander("Findings", expanded=False):
+        st.markdown(
+            """
+            You can enforce this at the prompt level to save tokens but could potentially open attack vector to multi-turn attacks that the model doesn't see forming. This does make the model much slower as conversation builds. but when considering tradeoffs for this challenge, I'd rather trade off response time over security.
+
+            It is possible to offload the models instructions to the json schema's descriptions. This is ideal because it lowers the attack vector of potentially overidding the instructions since they're not enforced at the prompt level. but this dramatically increases responses times. Messages containing the word "TEST" only take 60+ second round trips. when considering tradeoffs, I'd much rather have a usable experience that experiment with this feature not fully understanding its capabilities.
+            """
+        )
+
+
+def render_known_flaws() -> None:
+    """Render known flaws expander in the Overview tab.
+    
+    Outlines current limitations.
+    """
+    with st.expander("Known Flaws", expanded=False):
+        st.markdown(
+            """
+            - Very slow
+            - Rule definitions could be simplified
+            """
+        )
+
+
 def render_how_to_contribute() -> None:
     """Render information on how to contribute to the project.
     
-    This function provides guidance on contributing to the **Safety Layer** project, including testing the system, reporting issues,
+    This function provides guidance on contributing to the **Compliance Layer** project, including testing the system, reporting issues,
     submitting improvements, sharing research, and understanding data privacy options.
     """
     with st.expander("How to Contribute", expanded=False):
@@ -423,14 +452,14 @@ def render_how_to_contribute() -> None:
             Try different interactions with the chat. Every conversation helps build our dataset of safety examples.
             
             ### 2. Report Issues
-            If you encounter cases where the **Safety Layer** fails (either by incorrectly blocking valid content or allowing harmful inputs), 
+            If you encounter cases where the **Compliance Layer** fails (either by incorrectly blocking valid content or allowing harmful inputs), 
             use the feedback options to report the issue.
             
             ### 3. Submit Pull Requests
             Visit our Github to contribute code improvements, documentation, or new safety rules.
             
             ### 4. Share Your Research
-            If you utilize the **Safety Layer** dataset in your work, let us know so we can highlight your contributions.
+            If you utilize the **Compliance Layer** dataset in your work, let us know so we can highlight your contributions.
             """
             )
         
@@ -449,7 +478,7 @@ def render_how_to_contribute() -> None:
 
 
 def main() -> None:
-    """Initialize session state and render the **Safety Layer** overview page.
+    """Initialize session state and render the **Compliance Layer** overview page.
 
     This function configures the Streamlit application, initializes session state, and organizes the layout into multiple
     tabs that showcase an overview, technical details, dataset information, research directions, contribution guidelines, and licensing.
@@ -464,7 +493,7 @@ def main() -> None:
     show_alpha_banner()
 
     st.title("OmniGuard")
-    st.markdown("*A reasoning-based safety layer underpinned by an open research dataset*")
+    st.markdown("*A reasoning-based compliance layer underpinned by an open research dataset*")
 
     tab1, tab2, tab3, tab4, tab5 = st.tabs([
         "Overview", "Technical Details", "Dataset", "Contribute", "License"
@@ -474,6 +503,8 @@ def main() -> None:
         render_concise_overview()
         render_key_features()
         render_use_cases()
+        render_findings()
+        render_known_flaws()
         render_end_note()
 
     with tab2:
