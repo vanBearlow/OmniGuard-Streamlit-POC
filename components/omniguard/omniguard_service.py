@@ -31,167 +31,50 @@ def omniguard_check(pending_assistant_response=None):
     Returns:
         str: JSON string with evaluation result.
     """
-    try:
-        session = st.session_state
-        client = get_openai_client()
 
-        from components.conversation_utils import build_conversation_json, format_conversation_context
+    session = st.session_state
+    client = get_openai_client()
 
-        full_messages = session.messages.copy()
-        # Append pending assistant response if available.
-        if pending_assistant_response:
-            full_messages.append({"role": "assistant", "content": pending_assistant_response})
+    from components.conversation_utils import build_conversation_json, format_conversation_context
 
-        conversation = build_conversation_json(full_messages)
-        conversation_context = format_conversation_context(conversation)
+    full_messages = session.messages.copy()
+    # Append pending assistant response if available.
+    if pending_assistant_response:
+        full_messages.append({"role": "assistant", "content": pending_assistant_response})
 
-        if not verify_configuration():
-            raise Exception("Invalid OmniGuard developer prompt state")
+    conversation = build_conversation_json(full_messages)
+    conversation_context = format_conversation_context(conversation)
 
-        omniguard_config = session.get("omnigaurd_developer_prompt")
-        if not omniguard_config:
-            raise Exception("OmniGuard developer prompt is missing")
-        omniguard_evaluation_input = [
-            {"role": "developer", "content": omniguard_config},
-            {"role": "user", "content": conversation_context},
-        ]
+    if not verify_configuration():
+        raise Exception("Invalid OmniGuard developer prompt state")
 
-        model_params = get_model_params(
-            session.get("selected_omniguard_model", "o3-mini-2025-01-31"), is_omniguard=True
+    omniguard_config = session.get("omnigaurd_developer_prompt")
+    if not omniguard_config:
+        raise Exception("OmniGuard developer prompt is missing")
+    omniguard_evaluation_input = [
+        {"role": "developer", "content": omniguard_config},
+        {"role": "user", "content": conversation_context},
+    ]
+
+    model_params = get_model_params(
+        session.get("selected_omniguard_model", "o3-mini-2025-01-31"), is_omniguard=True
+    )
+
+    response = client.chat.completions.create(
+            model=session.get("selected_omniguard_model", "o3-mini-2025-01-31"),
+            messages=omniguard_evaluation_input,
+            response_format={"type": "json_object"},
+            **model_params
         )
+    
+    session.omniguard_input_message = omniguard_evaluation_input
+    session.omniguard_raw_api_response = response
 
-        try:
-            response = client.chat.completions.create(
-                model=session.get("selected_omniguard_model", "o3-mini-2025-01-31"),
-                messages=omniguard_evaluation_input,
-                response_format={
-                    "type": "json_schema",
-                    "json_schema": {
-                        "name": "omniguard_response",
-                        "strict": True,
-                        "schema": {
-                            "type": "object",
-                            "properties": {
-                                "conversation_id": {"type": "string"},
-                                "analysis": {"type": "string"},
-                                "compliant": {"type": "boolean"},
-                                "response": {
-                                    "type": "object",
-                                    "properties": {
-                                        "action": {
-                                            "type": "string",
-                                            "enum": ["RefuseUser", "RefuseAssistant"],
-                                        },
-                                        "RefuseUser": {"type": ["string", "null"]},
-                                        "RefuseAssistant": {"type": ["string", "null"]},
-                                    },
-                                    "required": ["action", "RefuseUser", "RefuseAssistant"],
-                                    "additionalProperties": False,
-                                },
-                            },
-                            "required": ["conversation_id", "analysis", "compliant", "response"],
-                            "additionalProperties": False,
-                        },
-                    },
-                },
-                **model_params
-            )
-        except RateLimitError as e:
-            logger.error(f"Rate limit exceeded: {e}")
-            raise
-        except APIError as e:
-            logger.error(f"OpenAI API error: {e}")
-            if "response_format" in str(e).lower() or "json_schema" in str(e).lower():
-                error_response = {
-                    "conversation_id": session.get("conversation_id", "error"),
-                    "analysis": f"Schema Validation Error: {str(e)}",
-                    "compliant": False,
-                    "response": {
-                        "action": "RefuseUser",
-                        "RefuseUser": "I'm sorry, I can't help with that. Please try again later. (Rate limit)",
-                        "RefuseAssistant": None,
-                    },
-                }
-                session["schema_violation"] = True
-                return json.dumps(error_response)
-            raise
-        except requests.exceptions.RequestException as e:
-            logger.error(f"Network error during API call: {e}")
-            raise
+    session.omniguard_output_message = response.choices[0].message.content
 
-        session.omniguard_input_message = omniguard_evaluation_input
-        session.omniguard_raw_api_response = response
-        try:
-            if not (
-                hasattr(response, "choices")
-                and response.choices
-                and hasattr(response.choices[0], "message")
-                and response.choices[0].message
-            ):
-                raise ValueError("API response missing choices or message data")
-            raw_content = response.choices[0].message.content
-        except Exception as extraction_error:
-            logger.error(
-                f"Error extracting message content from API response: {extraction_error}. Full response: {response}"
-            )
-            raise Exception("Malformed API response structure")
-        session.omniguard_output_message = raw_content
+    return
 
-        return raw_content
 
-    except (RateLimitError, APIError) as e:
-        logger.exception("OpenAI API Error in OmniGuard")
-        error_response = {
-            "conversation_id": session.get("conversation_id", "error"),
-            "analysis": f"API Error: {str(e)}",
-            "compliant": False,
-            "response": {
-                "action": "RefuseUser",
-                "RefuseUser": f"OmniGuard API error - {str(e)}",
-                "RefuseAssistant": None,
-            },
-        }
-        return json.dumps(error_response)
-    except requests.exceptions.RequestException as e:
-        logger.exception("Network Error in OmniGuard")
-        error_response = {
-            "conversation_id": session.get("conversation_id", "error"),
-            "analysis": f"Network Error: {str(e)}",
-            "compliant": False,
-            "response": {
-                "action": "RefuseUser",
-                "RefuseUser": f"OmniGuard network error - {str(e)}",
-                "RefuseAssistant": None,
-            },
-        }
-        return json.dumps(error_response)
-    except json.JSONDecodeError as e:
-        logger.exception("JSON Parsing Error in OmniGuard")
-        session["schema_violation"] = True
-        error_response = {
-            "conversation_id": session.get("conversation_id", "error"),
-            "analysis": f"JSON Parse Error: {str(e)}",
-            "compliant": False,
-            "response": {
-                "action": "RefuseUser",
-                "RefuseUser": f"OmniGuard response parsing error - {str(e)}",
-                "RefuseAssistant": None,
-            },
-        }
-        return json.dumps(error_response)
-    except Exception as e:
-        logger.exception("Unexpected Error in OmniGuard")
-        error_response = {
-            "conversation_id": session.get("conversation_id", "error"),
-            "analysis": f"System Error: {str(e)}",
-            "compliant": False,
-            "response": {
-                "action": "RefuseUser",
-                "RefuseUser": f"OmniGuard system error - {str(e)}",
-                "RefuseAssistant": None,
-            },
-        }
-        return json.dumps(error_response)
 
 def process_omniguard_result(omniguard_result, user_prompt, context):
     """Processes OmniGuard result and handles actions accordingly.
