@@ -1,17 +1,128 @@
+"""
+Chat Logic Module
+
+This module encapsulates the business logic for chat interactions, including
+processing user input, safety checks, and agent responses.
+"""
+
 import json
 import time
 import logging
 import streamlit as st
 import requests.exceptions
+from typing import Dict, Any, Optional, List
 from openai import APIError, RateLimitError
-from components.omniguard.client import get_openai_client, get_model_params
 
+# Import from other modules
+from components.api_client import get_openai_client, get_model_params
+from components.chat.session_management import upsert_conversation_turn, generate_conversation_id
 
 logger = logging.getLogger(__name__)
-
 sitename = "OmniGuard"
 
-def verify_configuration():
+# *** CONVERSATION UTILITIES ***
+def build_conversation_json(messages: List[Dict[str, str]]) -> Dict[str, Any]:
+    """
+    Constructs and returns a dictionary representing the conversation structure.
+    
+    Args:
+        messages (List[Dict[str, str]]): List of message dictionaries, each containing 'role' and 'content' keys.
+        
+    Returns:
+        Dict[str, Any]: Dictionary containing the conversation ID and full message history,
+                        with the system prompt as the first message.
+    """
+    # Build full conversation by prepending the system prompt.
+    system_prompt = st.session_state.agent_system_prompt
+    full_messages  = [{"role": "system", "content": system_prompt}]
+    full_messages.extend(messages)
+    
+    return {
+        "id":       st.session_state.conversation_id,
+        "messages": full_messages,
+    }
+
+def format_conversation_context(conversation: Dict[str, Any]) -> str:
+    """
+    Formats a conversation dictionary into the XML-like structure expected by the system.
+    
+    Args:
+        conversation (Dict[str, Any]): Conversation data as a dictionary.
+        
+    Returns:
+        str: XML-like formatted string representation of the conversation.
+    """
+    conversation_json = json.dumps(conversation, indent=4)
+    return f"<input>\n{conversation_json}\n</input>"
+
+# *** AGENT SERVICE ***
+def verify_agent_configuration() -> bool:
+    """
+    Verify that essential configuration values (like the agent system prompt) are set
+    in session state.
+
+    Returns:
+        bool: True if 'agent_system_prompt' is present, False otherwise.
+    """
+    if not st.session_state.get("agent_system_prompt"):
+        logger.error("Agent system prompt is missing or empty")
+        return False
+    return True
+
+def fetch_agent_response(prompt_text: str) -> str:
+    """
+    Fetch the agent's response using the designated model. The entire raw API response
+    is stored in session state (for future reference like calculating costs).
+
+    Note:
+        The 'prompt_text' parameter is not used because the system prompt is fetched from
+        session state; it is retained for interface consistency.
+
+    Parameters:
+        prompt_text (str): The prompt text for querying the agent.
+
+    Returns:
+        str: The agent's response extracted from the API, or an error message in case of issues.
+    """
+    client = get_openai_client()
+
+    if not verify_agent_configuration():
+        raise Exception("Invalid Agent configuration state")
+
+    main_prompt = st.session_state.get("agent_system_prompt")
+    if not main_prompt:
+        raise Exception("Agent system prompt is missing")
+
+    # Determine role based on model type for clarity in agent messages
+    role = "system" if st.session_state.selected_agent_model.startswith(("o1", "o3")) else "developer"
+    agent_messages = [{"role": role, "content": main_prompt}]
+    agent_messages += [
+        {"role": message["role"], "content": message["content"]}
+        for message in st.session_state.messages
+    ]
+    st.session_state.agent_messages = agent_messages
+
+    # Get model-specific parameters for the API call
+    model_params = get_model_params(st.session_state.selected_agent_model)
+
+    response = client.chat.completions.create(
+            extra_headers={
+                "HTTP-Referer": st.session_state.get("site_url", "https://omniguard.streamlit.app"),
+                "X-Title"    : st.session_state.get("site_name", sitename),
+            },
+            model=st.session_state.selected_agent_model,
+            messages=agent_messages,
+            **model_params
+        )
+    # Store the complete API response for potential further analysis (e.g. cost calculations)
+    st.session_state.assistant_raw_api_response = response
+
+    # Extract and return the agent's text output from the API response
+    agent_output = response.choices[0].message.content
+    return agent_output
+
+# *** OMNIGUARD SERVICE ***
+def verify_omniguard_configuration():
     """Verifies if the OmniGuard developer prompt is set.
 
     Returns:
@@ -31,11 +142,8 @@ def omniguard_check(pending_assistant_response=None):
     Returns:
         str: JSON string with evaluation result.
     """
-
     session = st.session_state
     client = get_openai_client()
-
-    from components.conversation_utils import build_conversation_json, format_conversation_context
 
     full_messages = session.messages.copy()
     # Append pending assistant response if available.
@@ -45,7 +153,7 @@ def omniguard_check(pending_assistant_response=None):
     conversation = build_conversation_json(full_messages)
     conversation_context = format_conversation_context(conversation)
 
-    if not verify_configuration():
+    if not verify_omniguard_configuration():
         raise Exception("Invalid OmniGuard developer prompt state")
 
     omniguard_config = session.get("omnigaurd_developer_prompt")
@@ -73,8 +181,6 @@ def omniguard_check(pending_assistant_response=None):
 
     return session.omniguard_output_message
 
-
-
 def process_omniguard_result(omniguard_result, user_prompt, context):
     """Processes OmniGuard result and handles actions accordingly.
 
@@ -83,7 +189,6 @@ def process_omniguard_result(omniguard_result, user_prompt, context):
         user_prompt (str): The user's prompt.
         context: Additional conversation context.
     """
-    from components.chat.session_management import upsert_conversation_turn, generate_conversation_id
     session = st.session_state
 
     session["schema_violation"] = False
@@ -137,7 +242,6 @@ def process_omniguard_result(omniguard_result, user_prompt, context):
         return
 
     # --- Proceed for compliant user ---
-    from components.omniguard.agent_service import fetch_agent_response
     with st.spinner("Agent", show_time=True):
         assistant_response = fetch_agent_response(user_prompt)
 
@@ -189,3 +293,69 @@ def process_omniguard_result(omniguard_result, user_prompt, context):
     session["turn_number"] += 1
     session["conversation_id"] = generate_conversation_id(session["turn_number"])
     upsert_conversation_turn()
+
+# *** USER INPUT PROCESSING ***
+def handle_omniguard_check(user_input: str, session_state: Dict[str, Any]) -> None:
+    """
+    Execute OmniGuard safety protocol with error resilience and context-aware processing.
+    
+    Args:
+        user_input: Raw user input text for safety analysis
+        session_state: Conversation state providing contextual awareness
+    
+    Returns:
+        None: Modifies session state directly based on safety check results
+    """
+    try:
+        with st.spinner("Compliance Layer (User)", show_time=True):
+            omniguard_response = omniguard_check()
+    except Exception as ex:
+        st.error(f"Safety system failure: {ex}")
+        logging.exception("OmniGuard service exception")
+        omniguard_response = {
+            "response": {
+                "action":"RefuseUser",
+                "RefuseUser": "",
+            }
+        }
+
+    last_msg  = session_state["messages"][-1] if session_state["messages"] else {}
+    context   = f"{last_msg['role']}: {last_msg['content']}" if last_msg else ""
+    
+    process_omniguard_result(
+        omniguard_response, 
+        user_input, 
+        context
+    )
+
+def process_user_message(
+    user_input:str,
+    session_state: Dict[str, Any],
+    generate_conversation_id:  callable,
+    update_conversation_context: callable
+) -> None:
+    """
+    Process user message through conversation pipeline with safety checks.
+    
+    Args:
+        user_input: User message text (stripped and validated)
+        session_state: Current conversation state with messages and metadata
+        generate_conversation_id: Context-aware ID generator function
+        update_conversation_context: State updater maintaining conversation flow
+    
+    Raises:
+        RuntimeError: If message processing fails critical safety checks
+    """
+    if not user_input or not isinstance(user_input, str):
+        return  # Early exit for invalid input
+
+    user_input = user_input.strip()
+    session_state["turn_number"] += 1
+    session_state["conversation_id"] = generate_conversation_id(session_state["turn_number"])
+    session_state["messages"].append({"role": "user", "content": user_input})
+    update_conversation_context()
+
+    with st.chat_message("user"):
+        st.markdown(user_input)
+
+    handle_omniguard_check(user_input, session_state)
