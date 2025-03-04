@@ -135,7 +135,8 @@ def upsert_conversation_turn() -> None:
         "contributor_id": st.session_state.get("contributor_id"),
         "schema_violation": st.session_state.get("schema_violation", False),
         "compliant": st.session_state.get("compliant"),
-        "action": st.session_state.get("action")
+        "action": st.session_state.get("action"),
+        "rules_violated": st.session_state.get("rules_violated")
     }
 
     supabase.table("interactions").upsert(row_data).execute()

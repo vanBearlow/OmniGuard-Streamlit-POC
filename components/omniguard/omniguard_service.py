@@ -71,7 +71,7 @@ def omniguard_check(pending_assistant_response=None):
     session.omniguard_raw_api_response = response
     session.omniguard_output_message = response.choices[0].message.content
 
-    return 
+    return session.omniguard_output_message
 
 
 
@@ -89,6 +89,10 @@ def process_omniguard_result(omniguard_result, user_prompt, context):
     session["schema_violation"] = False
 
     omniguard_raw_response = omniguard_result
+    if omniguard_raw_response is None:
+        logger.error("Empty OmniGuard result received")
+        session["schema_violation"] = True
+        return
     try:
         parsed_response = json.loads(omniguard_raw_response)
         logger.debug(f"Parsed OmniGuard response: {parsed_response}")
@@ -100,6 +104,8 @@ def process_omniguard_result(omniguard_result, user_prompt, context):
         analysis_summary = parsed_response.get("analysis", "")
         conversation_id = parsed_response.get("conversation_id", "")
         action = parsed_response.get("response", {}).get("action")
+        rules_violated = parsed_response.get("response", {}).get("rules_violated", [])
+        session["rules_violated"] = rules_violated
 
         session["compliant"] = compliant
         session["action"] = action
