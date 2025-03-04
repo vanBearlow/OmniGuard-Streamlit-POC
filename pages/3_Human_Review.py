@@ -44,7 +44,6 @@ def display_conversation(conversation: Dict[str, Any]) -> None:
     """
     st.markdown(f"**Conversation ID:** `{conversation['id']}`")
 
-    conv_json: Dict[str, Any] = conversation.get("conversation") or {}
     meta_json: Dict[str, Any] = conversation.get("metadata") or {}
     review_data: Dict[str, Any] = meta_json.get("review_data", {}) or {}
 
@@ -82,9 +81,14 @@ def display_conversation(conversation: Dict[str, Any]) -> None:
             with col4:
                 st.markdown(f"**Compliant / Non-Harmful**\n{votes.get('compliant_votes', 0)}")
 
-    # --- MESSAGES SECTION ---
-    with st.expander("Show Messages"):
-        st.json(conv_json.get("messages", []))
+    # --- CONVERSATION DETAILS SECTION ---
+    with st.expander("Conversation Details"):
+        st.markdown("**Instructions:**")
+        st.write(conversation.get("instructions", "N/A"))
+        st.markdown("**Input:**")
+        st.write(conversation.get("input", "N/A"))
+        st.markdown("**Output:**")
+        st.write(conversation.get("output", "N/A"))
 
     # --- VOTING FORM SECTION ---
     with st.form(key=f"vote_form_{conversation['id']}"):
@@ -161,7 +165,9 @@ def display_conversation(conversation: Dict[str, Any]) -> None:
                         new_verifier = "human" if is_fully_verified else "pending"
                         row_data = {
                             "id": conversation["id"],
-                            "conversation": conv_json,
+                            "instructions": conversation.get("instructions", ""),
+                            "input": conversation.get("input", ""),
+                            "output": conversation.get("output", ""),
                             "metadata": meta_copy,
                             "verifier": new_verifier,
                             "compliant": is_compliant,

@@ -124,7 +124,8 @@ def render_dataset() -> None:
     supabase = get_supabase_client()
 
     try:
-        result = supabase.table("interactions").select("*").execute()
+        # Select all columns including the new ones (instructions, input, output)
+        result = supabase.table("interactions").select("id, instructions, input, output, metadata, verifier, compliant, submitted_for_review").execute()
         data = result.data if result else []
 
         stats_data = {
@@ -360,7 +361,9 @@ def render_dataset_applications() -> None:
         <table class="csv-table">
             <tr>
                 <th>id</th>
-                <th>conversation</th>
+                <th>instructions</th>
+                <th>input</th>
+                <th>output</th>
                 <th>metadata</th>
                 <th>created_at</th>
                 <th>updated_at</th>
@@ -368,29 +371,23 @@ def render_dataset_applications() -> None:
                 <th>verifier</th>
                 <th>submitted_for_review</th>
                 <th>contributor_id</th>
-                <th>name</th>
-                <th>x</th>
-                <th>discord</th>
-                <th>linkedin</th>
                 <th>schema_violation</th>
                 <th>action</th>
             </tr>
             <tr>
                 <td>interaction-uuid</td>
-                <td class="json-content">{"messages":[{"role":"system","content":"System instructions"},{"role":"user","content":"User message"},{"role":"assistant","content":"Assistant response"}],"context":{"session_id":"session-uuid","conversation_id":"conversation-uuid"}}</td>
-                <td class="json-content">{"raw_response":{"id":"response-id","created":"2023-11-15T12:34:56Z"},"review_data":{"violation_source":["User"],"reporter_comment":"User attempted harmful content"},"schema_violation":false,"action":"RefuseUser"}</td>
+                <td class="json-content">System instructions for OmniGuard evaluation</td>
+                <td class="json-content">&lt;input&gt;{"id":"conversation-uuid","messages":[{"role":"system","content":"System instructions"},{"role":"user","content":"User message"}]}&lt;/input&gt;</td>
+                <td class="json-content">{"conversation_id":"conversation-uuid","analysis":"The user's message appears compliant with safety guidelines.","compliant":true}</td>
+                <td class="json-content">{"raw_response":{"id":"response-id","created":"2023-11-15T12:34:56Z"},"review_data":{"violation_source":[],"reporter_comment":""},"schema_violation":false,"action":null}</td>
                 <td>2023-11-15T12:34:56Z</td>
                 <td>2023-11-15T13:45:12Z</td>
-                <td>false</td>
-                <td>human</td>
                 <td>true</td>
-                <td>contributor-uuid</td>
-                <td>John Doe</td>
-                <td>@johndoe</td>
-                <td>johndoe#1234</td>
-                <td>linkedin.com/in/johndoe</td>
+                <td>omniguard</td>
                 <td>false</td>
-                <td>RefuseUser</td>
+                <td>contributor-uuid</td>
+                <td>false</td>
+                <td>null</td>
             </tr>
         </table>
         """
@@ -401,9 +398,10 @@ def render_dataset_applications() -> None:
             """
         Note that in the CSV format:
 
-        * Complex nested objects like `conversation` and `metadata` are serialized as JSON strings.
-        * This preserves all data while ensuring compatibility with CSV.
-        * When processing the CSV, you may need to parse these JSON fields to extract nested information.
+        * The `instructions`, `input`, and `output` fields contain the conversation data that was previously nested in the `conversation` field.
+        * Complex nested objects like `metadata` are still serialized as JSON strings.
+        * This new structure makes it easier to directly access conversation data without parsing nested JSON.
+        * When processing the CSV, you may still need to parse the `metadata` JSON field to extract nested information.
         """)
 
 

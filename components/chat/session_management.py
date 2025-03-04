@@ -4,8 +4,9 @@ Handles conversation state, database interactions, and session initialization.
 """
 
 import uuid
+import json
 import streamlit as st
-from typing                 import Callable, Dict, Any, Optional
+from typing                 import Callable, Dict, Any, Optional, List
 from dataclasses            import dataclass, asdict
 from functools              import wraps
 from st_supabase_connection import SupabaseConnection
@@ -112,31 +113,84 @@ def _build_metadata_json() -> dict:
         }
     }
 
+# *** CONVERSATION UTILITIES ***
+def build_conversation_json(messages: List[Dict[str, str]]) -> Dict[str, Any]:
+    """
+    Constructs and returns a dictionary representing the conversation structure.
+    
+    Args:
+        messages (List[Dict[str, str]]): List of message dictionaries, each containing 'role' and 'content' keys.
+        
+    Returns:
+        Dict[str, Any]: Dictionary containing the conversation ID and full message history,
+                        with the system prompt as the first message.
+    """
+    # Build full conversation by prepending the system prompt.
+    system_prompt = st.session_state.agent_system_prompt
+    full_messages  = [{"role": "system", "content": system_prompt}]
+    full_messages.extend(messages)
+    
+    return {
+        "id":       st.session_state.conversation_id,
+        "messages": full_messages,
+    }
+
+def format_conversation_context(conversation: Dict[str, Any]) -> str:
+    """
+    Formats a conversation dictionary into the XML-like structure expected by the system.
+    
+    Args:
+        conversation (Dict[str, Any]): Conversation data as a dictionary.
+        
+    Returns:
+        str: XML-like formatted string representation of the conversation.
+    """
+    conversation_json = json.dumps(conversation, indent=4)
+    return f"<input>\n{conversation_json}\n</input>"
+
 @ensure_session_state
 def upsert_conversation_turn() -> None:
     supabase = get_supabase_client()
 
-    messages = st.session_state.omniguard_input_message.copy() if st.session_state.omniguard_input_message else []
-    if not any(msg.get('role') == 'assistant' for msg in messages):
-        if st.session_state.omniguard_output_message:
-            messages.append({
-                "role": "assistant",
-                "content": st.session_state.omniguard_output_message
-            })
+    # Extract data from session state
+    omniguard_input = st.session_state.get("omniguard_input_message", [])
+    
+    # Instructions: Developer prompt
+    instructions = next(
+        (msg["content"] for msg in omniguard_input if msg["role"] == "developer"),
+        st.session_state.get("omnigaurd_developer_prompt", "")
+    )
+    
+    # Input: Formatted conversation context
+    input_str = next(
+        (msg["content"] for msg in omniguard_input if msg["role"] == "user"),
+        format_conversation_context(build_conversation_json(st.session_state.messages))
+    )
+    
+    # Output: OmniGuard evaluation result
+    output_str = st.session_state.get("omniguard_output_message", "")
 
-    verifier = "pending" if st.session_state.get("submitted_for_review") else "omniguard"
-
-    row_data = {
-        "id": st.session_state.conversation_id,
-        "conversation": {"messages": messages},
-        "metadata": _build_metadata_json(),
-        "verifier": verifier,
-        "submitted_for_review": st.session_state.get("submitted_for_review", False),
-        "contributor_id": st.session_state.get("contributor_id"),
+    # Prepare metadata (unchanged)
+    metadata = {
+        "raw_response": _extract_api_response(st.session_state.get("omniguard_raw_api_response")),
+        "review_data": st.session_state.get("review_data"),
         "schema_violation": st.session_state.get("schema_violation", False),
-        "compliant": st.session_state.get("compliant"),
         "action": st.session_state.get("action"),
-        "rules_violated": st.session_state.get("rules_violated")
+        "rules_violated": st.session_state.get("rules_violated", []),
     }
 
+    # Build row data with new columns
+    row_data = {
+        "id": st.session_state.conversation_id,
+        "instructions": instructions,
+        "input": input_str,
+        "output": output_str,
+        "metadata": metadata,
+        "verifier": "pending" if st.session_state.get("submitted_for_review") else "omniguard",
+        "submitted_for_review": st.session_state.get("submitted_for_review", False),
+        "contributor_id": st.session_state.get("contributor_id"),
+        "compliant": st.session_state.get("compliant"),
+    }
+
+    # Upsert into the interactions table
     supabase.table("interactions").upsert(row_data).execute()
