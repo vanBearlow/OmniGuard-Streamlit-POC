@@ -61,7 +61,7 @@ def handle_omniguard_check(user_input: str, session_state: Dict[str, Any]) -> No
         omniguard_response = {
             "response": {
                 "action":"RefuseUser",
-                "RefuseUser": "Critical safety system unavailable - contact support",
+                "RefuseUser": "",
             }
         }
 

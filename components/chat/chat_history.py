@@ -30,7 +30,6 @@ def display_report_form(form_key: str = "report_violation_form") -> None:
             upsert_conversation_turn()
             st.toast("Report submitted successfully!")
             st.session_state.show_report_violation_form = False
-#
 
 # *** MESSAGE DISPLAYS ***
 def display_messages(messages: list[dict]) -> None:

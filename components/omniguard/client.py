@@ -18,19 +18,7 @@ def get_api_key():
     return api_key
 
 def get_openai_client():
-    """
-    Initialize and return the OpenAI client.
-
-    Uses the 'OpenRouter' (or standard OpenAI, if configured) base URL and the
-    retrieved API key. Logs an error and re-raises exceptions if client initialization fails.
-    """
-    try:
-        return OpenAI(
-            api_key=get_api_key()
-        )
-    except Exception as e:
-        logger.error(f"Failed to initialize OpenAI client: {e}")
-        raise
+    return OpenAI(api_key=get_api_key())
 
 def get_model_params(model_name, is_omniguard=False):
     """

@@ -37,66 +37,41 @@ def fetch_agent_response(prompt_text: str) -> str:
     Returns:
         str: The agent's response extracted from the API, or an error message in case of issues.
     """
-    try:
-        client = get_openai_client()
 
-        if not verify_configuration():
-            raise Exception("Invalid Agent configuration state")
+    client = get_openai_client()
 
-        main_prompt = st.session_state.get("agent_system_prompt")
-        if not main_prompt:
-            raise Exception("Agent system prompt is missing")
+    if not verify_configuration():
+        raise Exception("Invalid Agent configuration state")
 
-        # Determine role based on model type for clarity in agent messages
-        role = "system" if st.session_state.selected_agent_model.startswith(("o1", "o3")) else "developer"
-        agent_messages = [{"role": role, "content": main_prompt}]
-        agent_messages += [
-            {"role": message["role"], "content": message["content"]}
-            for message in st.session_state.messages
-        ]
-        st.session_state.agent_messages = agent_messages
+    main_prompt = st.session_state.get("agent_system_prompt")
+    if not main_prompt:
+        raise Exception("Agent system prompt is missing")
 
-        # Get model-specific parameters for the API call
-        model_params = get_model_params(st.session_state.selected_agent_model)
+    # Determine role based on model type for clarity in agent messages
+    role = "system" if st.session_state.selected_agent_model.startswith(("o1", "o3")) else "developer"
+    agent_messages = [{"role": role, "content": main_prompt}]
+    agent_messages += [
+        {"role": message["role"], "content": message["content"]}
+        for message in st.session_state.messages
+    ]
+    st.session_state.agent_messages = agent_messages
 
-        try:
-            response = client.chat.completions.create(
-                extra_headers={
-                    "HTTP-Referer": st.session_state.get("site_url", "https://omniguard.streamlit.app"),
-                    "X-Title"    : st.session_state.get("site_name", sitename),
-                },
-                model=st.session_state.selected_agent_model,
-                messages=agent_messages,
-                **model_params
-            )
-        except RateLimitError as e:
-            logger.error(f"Rate limit exceeded: {e}")
-            raise
-        except APIError as e:
-            logger.error(f"OpenAI API error: {e}")
-            raise
-        except requests.exceptions.RequestException as e:
-            logger.error(f"Network error: {e}")
-            raise
+    # Get model-specific parameters for the API call
+    model_params = get_model_params(st.session_state.selected_agent_model)
 
-        # Store the complete API response for potential further analysis (e.g. cost calculations)
-        st.session_state.assistant_raw_api_response = response
 
-        # Extract and return the agent's text output from the API response
-        agent_output = response.choices[0].message.content
-        return agent_output
+    response = client.chat.completions.create(
+            extra_headers={
+                "HTTP-Referer": st.session_state.get("site_url", "https://omniguard.streamlit.app"),
+                "X-Title"    : st.session_state.get("site_name", sitename),
+            },
+            model=st.session_state.selected_agent_model,
+            messages=agent_messages,
+            **model_params
+        )
+    # Store the complete API response for potential further analysis (e.g. cost calculations)
+    st.session_state.assistant_raw_api_response = response
 
-    except RateLimitError:
-        logger.exception("Rate limit exceeded during agent response fetch")
-        return ("Agent temporarily unavailable due to rate limiting. "
-                "Please try again in a moment.")
-    except APIError:
-        logger.exception("OpenAI API Error encountered during agent response fetch")
-        return "Agent temporarily unavailable. Please try again."
-    except requests.exceptions.RequestException:
-        logger.exception("Network error encountered during agent response fetch")
-        return ("Unable to reach agent due to network issues. "
-                "Please check your connection.")
-    except Exception:
-        logger.exception("Unexpected error during agent response fetch")
-        return "An unexpected error occurred. Please try again."
+    # Extract and return the agent's text output from the API response
+    agent_output = response.choices[0].message.content
+    return agent_output
