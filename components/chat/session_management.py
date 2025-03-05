@@ -170,21 +170,24 @@ def upsert_conversation_turn() -> None:
     # Output: OmniGuard evaluation result
     output_str = st.session_state.get("omniguard_output_message", "")
 
-    # Prepare metadata (unchanged)
+    # Extract rules_violated from session state
+    rules_violated = st.session_state.get("rules_violated", [])
+
+    # Prepare metadata (without rules_violated)
     metadata = {
         "raw_response": _extract_api_response(st.session_state.get("omniguard_raw_api_response")),
         "review_data": st.session_state.get("review_data"),
         "schema_violation": st.session_state.get("schema_violation", False),
         "action": st.session_state.get("action"),
-        "rules_violated": st.session_state.get("rules_violated", []),
     }
 
-    # Build row data with new columns
+    # Build row data with all fields (without conversation)
     row_data = {
         "id": st.session_state.conversation_id,
         "instructions": instructions,
         "input": input_str,
         "output": output_str,
+        "rules_violated": rules_violated,  # New top-level field
         "metadata": metadata,
         "verifier": "pending" if st.session_state.get("submitted_for_review") else "omniguard",
         "submitted_for_review": st.session_state.get("submitted_for_review", False),

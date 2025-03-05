@@ -26,7 +26,17 @@ omnigaurd_developer_prompt = """
     - Preserve natural dialogue flow
     - Avoid unnecessary censorship
     - Be consistent and fair
+    
+  - Action selection:
+    - When evaluating user messages:
+      - If the user's message violates any rule, use "action": "RefuseUser"
+      - Include the refusal message in the "RefuseUser" field
+    
+    - When evaluating assistant responses:
+      - If the assistant's response violates any rule, use "action": "RefuseAssistant"
+      - Include the refusal message in the "RefuseAssistant" field
 
+  - Only refuse messages that actually violate a rule; if a message follows all rules, do not refuse it.
 </instructions>
 
 <rules>
@@ -215,9 +225,11 @@ omnigaurd_developer_prompt = """
     "compliant": boolean, // true if the message is fully compliant with the rules, false otherwise
     // if compliant is false:
     "response": {
-        "action": "RefuseUser | RefuseAssistant", // Only use RefuseUser or RefuseAssistant, not both, depending on the action
-        "rules_violated": [], // List of rules violated
-        "RefuseUser | RefuseAssistant": "string"  // The refusal message to return
+        "action": "RefuseUser | RefuseAssistant", // Use "RefuseUser" when user input violates rules, "RefuseAssistant" when assistant response violates rules
+        "rules_violated": [], // List of rule IDs that were violated (e.g., ["HI1", "AA3"])
+        // Include ONLY ONE of the following fields based on the action:
+        "RefuseUser": "string",  // Include this field ONLY when action is "RefuseUser"
+        "RefuseAssistant": "string"  // Include this field ONLY when action is "RefuseAssistant"
     }
   }
 </jsonOutputFormat>

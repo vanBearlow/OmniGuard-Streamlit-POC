@@ -89,6 +89,15 @@ def display_conversation(conversation: Dict[str, Any]) -> None:
         st.write(conversation.get("input", "N/A"))
         st.markdown("**Output:**")
         st.write(conversation.get("output", "N/A"))
+        
+        # Display rules violated
+        st.markdown("**Rules Violated:**")
+        rules_violated = conversation.get("rules_violated", [])
+        if rules_violated:
+            for rule in rules_violated:
+                st.write(f"- {rule}")
+        else:
+            st.write("No rules violated")
 
     # --- VOTING FORM SECTION ---
     with st.form(key=f"vote_form_{conversation['id']}"):
@@ -168,6 +177,7 @@ def display_conversation(conversation: Dict[str, Any]) -> None:
                             "instructions": conversation.get("instructions", ""),
                             "input": conversation.get("input", ""),
                             "output": conversation.get("output", ""),
+                            "rules_violated": conversation.get("rules_violated", []),
                             "metadata": meta_copy,
                             "verifier": new_verifier,
                             "compliant": is_compliant,

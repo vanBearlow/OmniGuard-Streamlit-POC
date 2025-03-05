@@ -124,8 +124,8 @@ def render_dataset() -> None:
     supabase = get_supabase_client()
 
     try:
-        # Select all columns including the new ones (instructions, input, output)
-        result = supabase.table("interactions").select("id, instructions, input, output, metadata, verifier, compliant, submitted_for_review").execute()
+        # Select all columns including the new ones (instructions, input, output, rules_violated)
+        result = supabase.table("interactions").select("id, instructions, input, output, rules_violated, metadata, verifier, compliant, submitted_for_review").execute()
         data = result.data if result else []
 
         stats_data = {
@@ -364,6 +364,7 @@ def render_dataset_applications() -> None:
                 <th>instructions</th>
                 <th>input</th>
                 <th>output</th>
+                <th>rules_violated</th>
                 <th>metadata</th>
                 <th>created_at</th>
                 <th>updated_at</th>
@@ -379,6 +380,7 @@ def render_dataset_applications() -> None:
                 <td class="json-content">System instructions for OmniGuard evaluation</td>
                 <td class="json-content">&lt;input&gt;{"id":"conversation-uuid","messages":[{"role":"system","content":"System instructions"},{"role":"user","content":"User message"}]}&lt;/input&gt;</td>
                 <td class="json-content">{"conversation_id":"conversation-uuid","analysis":"The user's message appears compliant with safety guidelines.","compliant":true}</td>
+                <td class="json-content">["AA1", "HC2"]</td>
                 <td class="json-content">{"raw_response":{"id":"response-id","created":"2023-11-15T12:34:56Z"},"review_data":{"violation_source":[],"reporter_comment":""},"schema_violation":false,"action":null}</td>
                 <td>2023-11-15T12:34:56Z</td>
                 <td>2023-11-15T13:45:12Z</td>
@@ -399,8 +401,9 @@ def render_dataset_applications() -> None:
         Note that in the CSV format:
 
         * The `instructions`, `input`, and `output` fields contain the conversation data that was previously nested in the `conversation` field.
+        * The `rules_violated` field contains an array of rule IDs that were violated in the interaction.
         * Complex nested objects like `metadata` are still serialized as JSON strings.
-        * This new structure makes it easier to directly access conversation data without parsing nested JSON.
+        * This new structure makes it easier to directly access conversation data and analyze rule violations without parsing nested JSON.
         * When processing the CSV, you may still need to parse the `metadata` JSON field to extract nested information.
         """)
 
@@ -430,6 +433,7 @@ def render_known_flaws() -> None:
             - Very slow
             - Rule definitions could be simplified
             - Still prone to prompt injection attacks, if done correctly.
+            - OpenAI moderation sometimes refuses instead of allowing OmniGuard to refuse. This causes refusals to areas that may not be listed in the rules.
             """
         )
 

@@ -20,6 +20,68 @@ from components.chat.session_management import upsert_conversation_turn, generat
 logger = logging.getLogger(__name__)
 sitename = "OmniGuard"
 
+OUTPUTFORMAT = {
+  "name": "conversation_analysis_response",
+  "required": ["conversation_id", "analysis", "compliant"],
+  "properties": {
+    "conversation_id": {
+      "type": "string",
+      "description": "Unique identifier for the conversation"
+    },
+    "analysis": {
+      "type": "string",
+      "description": "Short note on conversation interpretation and triggered rules."
+    },
+    "compliant": {
+      "type": "boolean",
+      "description": "True if the message is fully compliant with the rules, false otherwise"
+    },
+    "response": {
+      "type": "object",
+      "description": "Response object, required only if compliant is false",
+      "required": ["action", "rules_violated"],
+      "properties": {
+        "action": {
+          "type": "string",
+          "enum": ["RefuseUser", "RefuseAssistant"],
+          "description": "Action to take based on the compliance check"
+        },
+        "rules_violated": {
+          "type": "array",
+          "description": "List of rule IDs that were violated (e.g., [\"HI1\", \"AA3\"])",
+          "items": {
+            "type": "string"
+          }
+        },
+        "RefuseUser": {
+          "type": "string",
+          "description": "Include this field ONLY when action is \"RefuseUser\""
+        },
+        "RefuseAssistant": {
+          "type": "string",
+          "description": "Include this field ONLY when action is \"RefuseAssistant\""
+        }
+      },
+      "oneOf": [
+        {
+          "required": ["RefuseUser"],
+          "not": { "required": ["RefuseAssistant"] }
+        },
+        {
+          "required": ["RefuseAssistant"],
+          "not": { "required": ["RefuseUser"] }
+        }
+      ]
+    }
+  },
+  "if": {
+    "properties": { "compliant": { "const": False } }
+  },
+  "then": { "required": ["response"] },
+  "else": { "not": { "required": ["response"] } }
+}
+
+
 # *** AGENT SERVICE ***
 def verify_agent_configuration() -> bool:
     """
@@ -71,10 +133,6 @@ def fetch_agent_response(prompt_text: str) -> str:
     model_params = get_model_params(st.session_state.selected_agent_model)
 
     response = client.chat.completions.create(
-            extra_headers={
-                "HTTP-Referer": st.session_state.get("site_url", "https://omniguard.streamlit.app"),
-                "X-Title"    : st.session_state.get("site_name", sitename),
-            },
             model=st.session_state.selected_agent_model,
             messages=agent_messages,
             **model_params
@@ -136,7 +194,7 @@ def omniguard_check(pending_assistant_response=None):
     response = client.chat.completions.create(
             model=session.get("selected_omniguard_model", "o3-mini-2025-01-31"),
             messages=omniguard_evaluation_input,
-            response_format={"type": "json_object"},
+            response_format={"type": "json_schema", "json_schema": OUTPUTFORMAT},
             **model_params
         )
     
@@ -193,9 +251,21 @@ def process_omniguard_result(omniguard_result, user_prompt, context):
     # --- USER VIOLATION CHECK ---
     user_violates = not compliant
     if user_violates:
-        response_text = parsed_response.get("response", {}).get(
-            "RefuseUser", "I'm sorry, I can't help with that. Please try again later. (Message parsing error)"
-        )
+        # Get the action from the response
+        action = parsed_response.get("response", {}).get("action")
+        
+        # Get the appropriate refusal message based on the action
+        if action == "RefuseUser":
+            response_text = parsed_response.get("response", {}).get("RefuseUser")
+        elif action == "RefuseAssistant":
+            response_text = parsed_response.get("response", {}).get("RefuseAssistant")
+        else:
+            # Fallback message if no valid action or refusal message is found
+            response_text = "I'm sorry, I can't help with that request."
+        
+        # If response_text is still None or empty, use a generic message
+        if not response_text:
+            response_text = "I'm sorry, I can't help with that request."
 
         with st.chat_message("assistant"):
             st.markdown(response_text)
