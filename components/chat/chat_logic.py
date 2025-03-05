@@ -255,6 +255,9 @@ def process_omniguard_result(omniguard_result, user_prompt, context):
         session["compliant"] = False
         session["action"] = None
 
+    # Save the user's message turn first
+    upsert_conversation_turn()
+    
     # --- USER VIOLATION CHECK ---
     user_violates = not compliant
     if user_violates:
@@ -277,10 +280,12 @@ def process_omniguard_result(omniguard_result, user_prompt, context):
         with st.chat_message("assistant"):
             st.markdown(response_text)
 
+        # Add the refusal message to session.messages for display purposes only
         session.messages.append({"role": "agent", "content": response_text})
-        session["turn_number"] += 1
-        session["conversation_id"] = generate_conversation_id(session["turn_number"])
-        upsert_conversation_turn()
+        
+        # Do NOT increment turn_number
+        # Do NOT generate a new conversation_id
+        # Do NOT call upsert_conversation_turn() again
         return
 
     # --- Proceed for compliant user ---
@@ -397,7 +402,7 @@ def process_user_message(
     session_state["messages"].append({"role": "user", "content": user_input})
     update_conversation_context()
     
-    # Evaluate and save the user's message turn
+    # Evaluate the user's message turn
     try:
         with st.spinner("Compliance Layer (User)", show_time=True):
             omniguard_response = omniguard_check()
@@ -414,7 +419,8 @@ def process_user_message(
                 session_state["compliant"] = False
                 session_state["schema_violation"] = True
         
-        upsert_conversation_turn()
+        # Note: We don't call upsert_conversation_turn() here anymore
+        # to avoid duplicate saves. It will be called in process_omniguard_result.
         
         # Display user message
         with st.chat_message("user"):
