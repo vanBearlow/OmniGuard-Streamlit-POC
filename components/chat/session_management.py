@@ -181,6 +181,34 @@ def upsert_conversation_turn() -> None:
         # Removed "action" from here
     }
 
+    # Fetch contributor details if contributor_id exists
+    contributor_id = st.session_state.get("contributor_id")
+    contributor_data = {
+        "name": "",
+        "x": "",
+        "discord": "",
+        "linkedin": ""
+    }
+    if contributor_id:
+        try:
+            res = (
+                supabase.table("contributors")
+                .select("name, x, discord, linkedin")
+                .eq("contributor_id", contributor_id)
+                .single()
+                .execute()
+            )
+            if res.data:
+                contributor_data = {
+                    "name": res.data.get("name", ""),
+                    "x": res.data.get("x", ""),
+                    "discord": res.data.get("discord", ""),
+                    "linkedin": res.data.get("linkedin", "")
+                }
+        except Exception as e:
+            print(f"Error fetching contributor data: {e}")
+            # Log error but proceed with empty values
+
     # Build row data with all fields (without conversation)
     row_data = {
         "id": st.session_state.conversation_id,
@@ -191,7 +219,11 @@ def upsert_conversation_turn() -> None:
         "metadata": metadata,
         "verifier": "pending" if st.session_state.get("submitted_for_review") else "omniguard",
         "submitted_for_review": st.session_state.get("submitted_for_review", False),
-        "contributor_id": st.session_state.get("contributor_id"),
+        "contributor_id": contributor_id,
+        "name": contributor_data["name"],
+        "x": contributor_data["x"],
+        "discord": contributor_data["discord"],
+        "linkedin": contributor_data["linkedin"],
         "compliant": st.session_state.get("compliant"),
         "action": st.session_state.get("action"),  # Added action as a top-level field
     }
