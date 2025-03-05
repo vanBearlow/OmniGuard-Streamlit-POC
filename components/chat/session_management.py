@@ -173,12 +173,12 @@ def upsert_conversation_turn() -> None:
     # Extract rules_violated from session state
     rules_violated = st.session_state.get("rules_violated", [])
 
-    # Prepare metadata (without rules_violated)
+    # Prepare metadata (without rules_violated or action)
     metadata = {
         "raw_response": _extract_api_response(st.session_state.get("omniguard_raw_api_response")),
         "review_data": st.session_state.get("review_data"),
         "schema_violation": st.session_state.get("schema_violation", False),
-        "action": st.session_state.get("action"),
+        # Removed "action" from here
     }
 
     # Build row data with all fields (without conversation)
@@ -187,12 +187,13 @@ def upsert_conversation_turn() -> None:
         "instructions": instructions,
         "input": input_str,
         "output": output_str,
-        "rules_violated": rules_violated,  # New top-level field
+        "rules_violated": rules_violated,  # Top-level field
         "metadata": metadata,
         "verifier": "pending" if st.session_state.get("submitted_for_review") else "omniguard",
         "submitted_for_review": st.session_state.get("submitted_for_review", False),
         "contributor_id": st.session_state.get("contributor_id"),
         "compliant": st.session_state.get("compliant"),
+        "action": st.session_state.get("action"),  # Added action as a top-level field
     }
 
     # Upsert into the interactions table

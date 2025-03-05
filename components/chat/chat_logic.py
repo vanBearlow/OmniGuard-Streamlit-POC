@@ -132,76 +132,7 @@ def omniguard_check(pending_assistant_response=None):
     response = client.chat.completions.create(
             model=session.get("selected_omniguard_model", "o3-mini-2025-01-31"),
             messages=omniguard_evaluation_input,
-            response_format={"type": "json_schema", "json_schema": {
-            "name": "conversation_analysis_response",
-            "strict": True,
-            "schema": {
-                "type": "object",
-                "required": [
-                "conversation_id",
-                "analysis",
-                "compliant",
-                "response"
-                ],
-                "additionalProperties": False,
-                "properties": {
-                "conversation_id": {
-                    "type": "string",
-                    "description": "Unique identifier for the conversation"
-                },
-                "analysis": {
-                    "type": "string",
-                    "description": "Short note on conversation interpretation and triggered rules."
-                },
-                "compliant": {
-                    "type": "boolean",
-                    "description": "True if the message is fully compliant with the rules, false otherwise"
-                },
-                "response": {
-                    "type": "object",
-                    "description": "Response object, required only if compliant is false",
-                    "required": [
-                    "action",
-                    "rules_violated",
-                    "RefuseUser",
-                    "RefuseAssistant"
-                    ],
-                    "additionalProperties": False,
-                    "properties": {
-                    "action": {
-                        "type": "string",
-                        "enum": [
-                        "RefuseUser",
-                        "RefuseAssistant"
-                        ],
-                        "description": "Action to take based on non-compliance"
-                    },
-                    "rules_violated": {
-                        "type": "array",
-                        "description": "List of violated rule IDs",
-                        "items": {
-                        "type": "string"
-                        }
-                    },
-                    "RefuseUser": {
-                        "type": [
-                        "string",
-                        "null"
-                        ],
-                        "description": "Message for user when action is 'RefuseUser' (null if not applicable)"
-                    },
-                    "RefuseAssistant": {
-                        "type": [
-                        "string",
-                        "null"
-                        ],
-                        "description": "Include this field ONLY when action is 'RefuseAssistant' (null otherwise)"
-                    }
-                    }
-                }
-                }
-            }
-            }},
+            response_format={"type": "json_object"},
             **model_params
         )
     
@@ -238,12 +169,19 @@ def process_omniguard_result(omniguard_result, user_prompt, context):
 
         analysis_summary = parsed_response.get("analysis", "")
         conversation_id = parsed_response.get("conversation_id", "")
-        action = parsed_response.get("response", {}).get("action")
+        
+        # Only set action if it's explicitly provided in the response
+        if "response" in parsed_response and "action" in parsed_response["response"]:
+            action = parsed_response["response"]["action"]
+            session["action"] = action
+        else:
+            # Clear any previous action value
+            session["action"] = None
+            
         rules_violated = parsed_response.get("response", {}).get("rules_violated", [])
         session["rules_violated"] = rules_violated
 
         session["compliant"] = compliant
-        session["action"] = action
 
     except json.JSONDecodeError as e:
         logger.error(f"Failed to parse OmniGuard result: {e}. Raw response: {omniguard_raw_response}")
@@ -412,7 +350,14 @@ def process_user_message(
             try:
                 parsed_response = json.loads(omniguard_response)
                 session_state["compliant"] = parsed_response.get("compliant", False)
-                session_state["action"] = parsed_response.get("response", {}).get("action")
+                
+                # Only set action if it's explicitly provided in the response
+                if "response" in parsed_response and "action" in parsed_response["response"]:
+                    session_state["action"] = parsed_response["response"]["action"]
+                else:
+                    # Clear any previous action value
+                    session_state["action"] = None
+                    
                 session_state["rules_violated"] = parsed_response.get("response", {}).get("rules_violated", [])
             except json.JSONDecodeError as e:
                 logger.error(f"Failed to parse OmniGuard result: {e}. Raw response: {omniguard_response}")
