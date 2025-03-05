@@ -377,7 +377,7 @@ def process_user_message(
     update_conversation_context: callable
 ) -> None:
     """
-    Process user message through conversation pipeline with safety checks.
+    Process user message through conversation pipeline with safety checks, saving all turns.
     
     Args:
         user_input: User message text (stripped and validated)
@@ -396,8 +396,43 @@ def process_user_message(
     session_state["conversation_id"] = generate_conversation_id(session_state["turn_number"])
     session_state["messages"].append({"role": "user", "content": user_input})
     update_conversation_context()
-
-    with st.chat_message("user"):
-        st.markdown(user_input)
-
-    handle_omniguard_check(user_input, session_state)
+    
+    # Evaluate and save the user's message turn
+    try:
+        with st.spinner("Compliance Layer (User)", show_time=True):
+            omniguard_response = omniguard_check()
+        
+        # Parse the response to extract the compliant value
+        if omniguard_response:
+            try:
+                parsed_response = json.loads(omniguard_response)
+                session_state["compliant"] = parsed_response.get("compliant", False)
+                session_state["action"] = parsed_response.get("response", {}).get("action")
+                session_state["rules_violated"] = parsed_response.get("response", {}).get("rules_violated", [])
+            except json.JSONDecodeError as e:
+                logger.error(f"Failed to parse OmniGuard result: {e}. Raw response: {omniguard_response}")
+                session_state["compliant"] = False
+                session_state["schema_violation"] = True
+        
+        upsert_conversation_turn()
+        
+        # Display user message
+        with st.chat_message("user"):
+            st.markdown(user_input)
+        
+        # Process Omniguard result
+        last_msg = session_state["messages"][-1] if session_state["messages"] else {}
+        context = f"{last_msg['role']}: {last_msg['content']}" if last_msg else ""
+        process_omniguard_result(omniguard_response, user_input, context)
+    except Exception as ex:
+        st.error(f"Safety system failure: {ex}")
+        logging.exception("OmniGuard service exception")
+        omniguard_response = json.dumps({
+            "compliant": False,
+            "response": {
+                "action": "RefuseUser",
+                "RefuseUser": "I'm sorry, I can't process that request due to a system error.",
+                "rules_violated": []
+            }
+        })
+        process_omniguard_result(omniguard_response, user_input, "")
