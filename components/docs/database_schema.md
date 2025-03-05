@@ -24,30 +24,35 @@ Stores information about users/contributors.
 
 The `interactions` table stores information about user interactions and conversations within the system.
 
-| Field | Type | Description |
-|-------|------|-------------|
-| id | text | Unique identifier for the interaction |
-| conversation | jsonb | JSON data containing the conversation details |
-| metadata | jsonb | Additional metadata about the interaction |
-| created_at | timestamptz | Timestamp when the interaction was created |
-| updated_at | timestamptz | Timestamp when the interaction was last updated |
-| compliant | bool | Flag indicating whether the interaction is compliant with policies |
-| verifier | text | Identifier or name of the entity that verified the interaction |
-| submitted_for_review | bool | Flag indicating whether the interaction has been submitted for review |
-| contributor_id | uuid | Unique identifier for the contributor/user |
-| name | text | Name associated with the interaction or contributor |
-| x | text | X (Twitter) handle or identifier |
-| discord | text | Discord handle or identifier |
-| linkedin | text | LinkedIn profile or identifier |
-| schema_violation | bool | Flag indicating whether the interaction violates the schema rules |
-| action | text | Action taken or to be taken for this interaction |
+| Column | Format | Type | Description |
+|--------|--------|------|-------------|
+| id | text | string | Unique identifier for the interaction |
+| metadata | jsonb | json | Additional metadata about the interaction |
+| created_at | timestamp with time zone | string | Timestamp when the interaction was created |
+| updated_at | timestamp with time zone | string | Timestamp when the interaction was last updated |
+| compliant | boolean | boolean | Flag indicating whether the interaction is compliant with policies |
+| verifier | text | string | Identifier or name of the entity that verified the interaction |
+| submitted_for_review | boolean | boolean | Flag indicating whether the interaction has been submitted for review |
+| contributor_id | uuid | string | Unique identifier for the contributor/user |
+| name | text | string | Name associated with the interaction or contributor |
+| x | text | string | X (Twitter) handle or identifier |
+| discord | text | string | Discord handle or identifier |
+| linkedin | text | string | LinkedIn profile or identifier |
+| schema_violation | boolean | boolean | Flag indicating whether the interaction violates the schema rules |
+| action | public."Action" | string | Action taken or to be taken for this interaction |
+| rules_violated | text[] | array | Array of rules that were violated in this interaction |
+| instructions | text | string | Developer Message |
+| input | text | string | User Message |
+| output | text | string | Assistant Message |
 
 ### Data Types
-- `text`: String data
+- `text`: String data type for storing text values
 - `jsonb`: JSON data stored in binary format for efficient querying and storage
-- `timestamptz`: Timestamp with timezone information
-- `bool`: Boolean value (true/false)
+- `timestamp with time zone`: Timestamp that includes timezone information
+- `boolean`: Boolean value (true/false)
 - `uuid`: Universally unique identifier
+- `text[]`: Array of text values
+- `public."Action"`: Enumerated type for action values
 
 ## Relationships
 
@@ -59,15 +64,16 @@ The `interactions` table stores information about user interactions and conversa
 2. The `interactions` table includes social media fields (name, x, discord, linkedin) which might be denormalized data from the contributors table or could be used for interactions from users who aren't registered contributors.
 3. The `donations` table mentioned in the code was not found in the actual schema. It might be planned for future implementation or accessed through a different method.
 4. Both tables use timestamps for tracking creation and modification times, with the `interactions` table using timezone-aware timestamps.
-5. The `conversation` field in the `interactions` table replaces the previously identified `messages` field, but serves a similar purpose.
+5. The `interactions` table now includes fields for storing conversation data: `instructions` (Developer Message), `input` (User Message), and `output` (Assistant Message).
+6. The `rules_violated` field stores an array of text values indicating which rules were violated in an interaction.
+7. The `action` field uses a custom enum type `public."Action"` to specify actions taken for an interaction.
 
-## Schema Differences from Code Analysis
+## Schema Updates
 
-Some differences were noted between the code references and the actual schema:
+The schema has been updated based on the latest database structure:
 
-1. In the code, `messages` is referenced, but the actual schema uses `conversation`
-2. The code references a `donations` table which is not present in the current schema
-3. The actual schema includes social media fields in both tables that weren't apparent from the code analysis
-4. The `contributor_id` is a UUID type rather than text as inferred from the code
-
-After retrieving the actual schema from Supabase, please update this document with the accurate column definitions, constraints, and relationships. 
+1. The `conversation` field previously mentioned has been replaced with specific message fields: `instructions`, `input`, and `output`.
+2. Boolean fields are now explicitly typed as `boolean` rather than `bool`.
+3. Timestamp fields are explicitly defined as `timestamp with time zone`.
+4. Added new fields: `rules_violated`, `instructions`, `input`, and `output`.
+5. The `action` field is now typed as `public."Action"` rather than plain text.
