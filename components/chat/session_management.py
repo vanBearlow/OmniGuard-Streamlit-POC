@@ -27,6 +27,7 @@ class SessionDefaults:
     agent_system_prompt: str = None
     conversation_context: Optional[dict] = None
     schema_violation: bool = False
+    schema_violation_context: Optional[str] = None  # Can be "user" or "assistant"
     compliant: Optional[bool] = None
     action: Optional[str] = None
 
@@ -177,8 +178,6 @@ def upsert_conversation_turn() -> None:
     metadata = {
         "raw_response": _extract_api_response(st.session_state.get("omniguard_raw_api_response")),
         "review_data": st.session_state.get("review_data"),
-        "schema_violation": st.session_state.get("schema_violation", False),
-        # Removed "action" from here
     }
 
     # Fetch contributor details if contributor_id exists
@@ -226,6 +225,8 @@ def upsert_conversation_turn() -> None:
         "linkedin": contributor_data["linkedin"],
         "compliant": st.session_state.get("compliant"),
         "action": st.session_state.get("action"),  # Added action as a top-level field
+        "schema_violation": st.session_state.get("schema_violation", False),
+        "schema_violation_context": st.session_state.get("schema_violation_context"),
     }
 
     # Upsert into the interactions table

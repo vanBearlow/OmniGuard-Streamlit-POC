@@ -153,19 +153,20 @@ def process_omniguard_result(omniguard_result, user_prompt, context):
     session = st.session_state
 
     session["schema_violation"] = False
+    session["schema_violation_context"] = None
 
     omniguard_raw_response = omniguard_result
     if omniguard_raw_response is None:
         logger.error("Empty OmniGuard result received")
-        session["schema_violation"] = True
         return
     try:
         parsed_response = json.loads(omniguard_raw_response)
         logger.debug(f"Parsed OmniGuard response: {parsed_response}")
         compliant = parsed_response.get("compliant", False)
         if not compliant and "response" not in parsed_response:
-            logger.error("Schema validation issue: Missing 'response' key in non-compliant result")
+            logger.error(f"Schema validation issue: Missing 'response' key in non-compliant result. Conversation ID: {conversation_id}")
             session["schema_violation"] = True
+            session["schema_violation_context"] = "user"  # Assume user context for this violation
 
         analysis_summary = parsed_response.get("analysis", "")
         conversation_id = parsed_response.get("conversation_id", "")
@@ -184,8 +185,9 @@ def process_omniguard_result(omniguard_result, user_prompt, context):
         session["compliant"] = compliant
 
     except json.JSONDecodeError as e:
-        logger.error(f"Failed to parse OmniGuard result: {e}. Raw response: {omniguard_raw_response}")
+        logger.error(f"Failed to parse OmniGuard result: {e}.Conversation ID: {conversation_id}.")
         session["schema_violation"] = True
+        session["schema_violation_context"] = "user"  # Assume user context for JSON parse errors
         parsed_response = {}
         compliant = False
         analysis_summary = f"Parse error: {str(e)}"
@@ -195,6 +197,32 @@ def process_omniguard_result(omniguard_result, user_prompt, context):
 
     # Save the user's message turn first
     upsert_conversation_turn()
+    
+    # --- SCHEMA VIOLATION CHECK ---
+    if session["schema_violation"]:
+        # Static refusal message for schema violations
+        static_refusal = "I'm sorry but I can't assist with that"
+        
+        # Determine the appropriate action based on context
+        if session.get("schema_violation_context") == "assistant":
+            action = "RefuseAssistant"
+        else:  # Default to user context if not specified
+            action = "RefuseUser"
+        
+        # Set the action in session state
+        session["action"] = action
+        
+        # Display the static refusal message
+        with st.chat_message("assistant"):
+            st.markdown(static_refusal)
+        
+        # Add the refusal message to session.messages for display purposes only
+        session.messages.append({"role": "agent", "content": static_refusal})
+        
+        # Do NOT increment turn_number
+        # Do NOT generate a new conversation_id
+        # Do NOT call upsert_conversation_turn() again
+        return
     
     # --- USER VIOLATION CHECK ---
     user_violates = not compliant
@@ -237,26 +265,30 @@ def process_omniguard_result(omniguard_result, user_prompt, context):
         basic_required_keys = ["conversation_id", "analysis", "compliant"]
         for key in basic_required_keys:
             if key not in assistant_check_parsed:
-                logger.error(f"Missing required key in agent check: {key}")
+                logger.error(f"Missing required key in agent check: {key}. Conversation ID: {conversation_id}")
                 session["schema_violation"] = True
+                session["schema_violation_context"] = "assistant"
                 break
 
         assistant_compliant = assistant_check_parsed.get("compliant", False)
         if not assistant_compliant:
             if "response" not in assistant_check_parsed:
-                logger.error("Missing 'response' key in non-compliant agent check")
+                logger.error(f"Missing 'response' key in non-compliant agent check. Conversation ID: {conversation_id}")
                 session["schema_violation"] = True
+                session["schema_violation_context"] = "assistant"
             elif "action" not in assistant_check_parsed["response"]:
-                logger.error("Missing 'action' field in agent check response")
+                logger.error(f"Missing 'action' field in agent check response. Conversation ID: {conversation_id}")
                 session["schema_violation"] = True
+                session["schema_violation_context"] = "assistant"
 
         assistant_action = assistant_check_parsed.get("response", {}).get("action")
         session["compliant"] = assistant_compliant
         session["action"] = assistant_action
 
     except (json.JSONDecodeError, TypeError) as e:
-        logger.error(f"Failed to parse agent check response: {e}")
+        logger.error(f"Failed to parse agent check response: {e}. Conversation ID: {conversation_id}")
         session["schema_violation"] = True
+        session["schema_violation_context"] = "assistant"
         assistant_check_parsed = {}
         assistant_compliant = False
         session["compliant"] = False
@@ -297,6 +329,8 @@ def handle_omniguard_check(user_input: str, session_state: Dict[str, Any]) -> No
     except Exception as ex:
         st.error(f"Safety system failure: {ex}")
         logging.exception("OmniGuard service exception")
+        session_state["schema_violation"] = True
+        session_state["schema_violation_context"] = "user"
         omniguard_response = {
             "response": {
                 "action":"RefuseUser",
@@ -360,9 +394,10 @@ def process_user_message(
                     
                 session_state["rules_violated"] = parsed_response.get("response", {}).get("rules_violated", [])
             except json.JSONDecodeError as e:
-                logger.error(f"Failed to parse OmniGuard result: {e}. Raw response: {omniguard_response}")
+                logger.error(f"Failed to parse OmniGuard result: {e}. Conversation ID: {session_state['conversation_id']}")
                 session_state["compliant"] = False
                 session_state["schema_violation"] = True
+                session_state["schema_violation_context"] = "user"
         
         # Note: We don't call upsert_conversation_turn() here anymore
         # to avoid duplicate saves. It will be called in process_omniguard_result.
@@ -378,6 +413,8 @@ def process_user_message(
     except Exception as ex:
         st.error(f"Safety system failure: {ex}")
         logging.exception("OmniGuard service exception")
+        session_state["schema_violation"] = True
+        session_state["schema_violation_context"] = "user"
         omniguard_response = json.dumps({
             "compliant": False,
             "response": {
