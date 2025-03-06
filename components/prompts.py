@@ -218,7 +218,7 @@ omnigaurd_developer_prompt = """
 ]
 </rules>
 
-<jsonOutputFormat>
+<jsonOutputSchema>
   {
     "conversation_id": "string", // unique identifier for the conversation
     "analysis": "string", // Short note on conversation interpretation and triggered rules.
@@ -232,5 +232,5 @@ omnigaurd_developer_prompt = """
         "RefuseAssistant": "string"  // Include this field ONLY when action is "RefuseAssistant"
     }
   }
-</jsonOutputFormat>
+</jsonOutputSchema>
 """
