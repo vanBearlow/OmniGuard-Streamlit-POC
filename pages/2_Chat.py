@@ -35,7 +35,6 @@ def update_conversation_context():
     conversation = build_conversation_json(st.session_state.messages)
     st.session_state.conversation_context = format_conversation_context(conversation)
 
-
 def main():
     """
     Main function for the OmniGuard Chat application.
@@ -64,6 +63,8 @@ def main():
             generate_conversation_id,
             update_conversation_context
         )
+        # Rerun to refresh UI and sync with session state before next interaction
+        #st.rerun()
     
     # Display debug information when enabled
     display_debug_expanders(
@@ -71,7 +72,6 @@ def main():
         st.session_state.omniguard_output_message,
         st.session_state.agent_messages
     )
-
 
 if __name__ == "__main__":
     main()

@@ -213,11 +213,11 @@ def process_omniguard_result(omniguard_result, user_prompt, context):
         session["action"] = action
         
         # Display the static refusal message
-        with st.chat_message("assistant"):
+        with st.chat_message("assistant", avatar="🛡️"):
             st.markdown(static_refusal)
         
         # Add the refusal message to session.messages for display purposes only
-        session.messages.append({"role": "agent", "content": static_refusal})
+        session.messages.append({"role": "assistant", "content": static_refusal})
         
         # Do NOT increment turn_number
         # Do NOT generate a new conversation_id
@@ -243,11 +243,11 @@ def process_omniguard_result(omniguard_result, user_prompt, context):
         if not response_text:
             response_text = "I'm sorry, I can't help with that request."
 
-        with st.chat_message("assistant"):
+        with st.chat_message("assistant", avatar="🛡️"):
             st.markdown(response_text)
 
         # Add the refusal message to session.messages for display purposes only
-        session.messages.append({"role": "agent", "content": response_text})
+        session.messages.append({"role": "assistant", "content": response_text})
         
         # Do NOT increment turn_number
         # Do NOT generate a new conversation_id

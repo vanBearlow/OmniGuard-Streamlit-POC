@@ -19,7 +19,7 @@ Sign in and visit the **Profile** page to add your information (name, socials) a
 ### 2. Review & Feedback
 After each response, you can:
 - Expand the sections to see full details
-- Click the 'Report For Human Review' button in the "From: Agent" section – your report might even score you a win!
+- Click the 'REPORT FOR HUMAN REVIEW' button in the sidebar – your report might even score you a win!
 
 ### 3. Current Model Settings
 - OmniGuard is currently using the `o3-mini-2025-01-31` model.
@@ -124,27 +124,12 @@ def display_debug_expanders(
                 
                 else:
                     st.write("No agent response available")
-                
-                # Replace report feedback widget for Agent with a Report button
-                if st.button("Report For Human Review", key=f"agent_report_btn_{conversation_id}_{turn_number}"):
-                    st.session_state.show_report_violation_form = True
-                    st.session_state.feedback_source = "agent"
-                
-                # Show report form if feedback was negative and came from Agent
-                if (st.session_state.get("show_report_violation_form", False) and 
-                    st.session_state.get("feedback_source") == "agent"):
-                    display_report_form(form_key=f"agent_report_form_{conversation_id}_{turn_number}")
 
 # *** SIDEBAR COMPONENTS ***
 def render_documentation() -> None:
     """Render the documentation section in an expander."""
     with st.expander("GETTING STARTED", expanded=False):
         st.markdown(GETTING_STARTED_DOC)
-
-def render_conversation_stats(session_state: Dict[str, Any]) -> None:
-    """Render the conversation stats section in an expander."""
-    with st.expander("CONVERSATION ID", expanded=False):
-        st.code(f"{session_state.get('conversation_id')}")
 
 def render_bounty() -> None:
     """Render the bounty section in an expander."""
@@ -199,21 +184,32 @@ def setup_sidebar(session_state: Dict[str, Any], reset_callback: ResetCallback) 
     """
     with st.sidebar:
         render_bounty()
-        st.markdown("---")
 
         # Render main documentation
         render_documentation()
         st.markdown("---")
-
-        # Conversation stats
-        render_conversation_stats(session_state)    
-        st.markdown("---")
+        if st.session_state.get("conversation_id"):
+            st.caption(f"ID: ```{st.session_state.get('conversation_id')}```")
         
         # Clear conversation button
         if st.button("CLEAR CHAT", use_container_width=True) and session_state.get("messages"):
             reset_callback()
             st.rerun()
         
+        # Report for human review section
+        conversation_id = session_state.get("conversation_id")
+        turn_number = session_state.get("turn_number")
+        
+        if st.button("REPORT FOR HUMAN REVIEW", use_container_width=True):
+            session_state["show_report_violation_form"] = True
+            session_state["feedback_source"] = "sidebar"
+        
+        # Show report form if button was clicked
+        if (session_state.get("show_report_violation_form", False) and 
+            session_state.get("feedback_source") == "sidebar"):
+            display_report_form(form_key=f"sidebar_report_form_{conversation_id}_{turn_number}")
+                    # Display conversation ID in the main UI
+
         # Help section
         st.markdown("---")
         st.caption("Need Help? Leave Feedback?")
