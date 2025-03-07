@@ -83,21 +83,16 @@ def display_conversation(conversation: Dict[str, Any]) -> None:
 
     # --- CONVERSATION DETAILS SECTION ---
     with st.expander("Conversation Details"):
-        st.markdown("**Instructions:**")
-        st.write(conversation.get("instructions", "N/A"))
-        st.markdown("**Input:**")
-        st.write(conversation.get("input", "N/A"))
-        st.markdown("**Output:**")
-        st.write(conversation.get("output", "N/A"))
+        with st.popover("Instructions"):
+            st.code(conversation.get("instructions", "N/A"))
+        with st.popover("Input"):
+            st.code(conversation.get("input", "N/A"))
+        with st.popover("Output"):
+            st.code(conversation.get("output", "N/A"))
         
         # Display rules violated
-        st.markdown("**Rules Violated:**")
         rules_violated = conversation.get("rules_violated", [])
-        if rules_violated:
-            for rule in rules_violated:
-                st.write(f"- {rule}")
-        else:
-            st.write("No rules violated")
+        st.markdown(f"Rules Violated: `{', '.join(rules_violated)}`")
 
     # --- VOTING FORM SECTION ---
     with st.form(key=f"vote_form_{conversation['id']}"):
