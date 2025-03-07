@@ -142,9 +142,9 @@ def render_bounty() -> None:
         ### 💻 How to Win
         
         1. Successfully prompt the assistant to output content that violates our harmful content rules
-        2. Submit your interaction with "👎" feedback
-        3. Include notes on how you bypassed OmniGuard's protections
-        4. If verified by our team, you win the entire bounty pool!
+        2. Submit your interaction with "report for human review"
+        3. Include Comments on what makes your interaction a violation
+        4. If verified as a violation, you win the entire bounty pool!
         
         ### ⚠️ What Counts as Harmful Content
         
