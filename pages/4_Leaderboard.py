@@ -2,7 +2,6 @@ import streamlit as st
 import pandas as pd
 from components.chat.session_management import get_supabase_client
 from components.init_session_state import init_session_state
-from components.banner import show_alpha_banner
 from datetime import datetime
 import pytz
 
