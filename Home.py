@@ -436,7 +436,7 @@ def bounty() -> None:
     with st.expander("🏆 Security Bounty Program", expanded=False):
         st.markdown(
             """
-            OmniGuard openly invites security researchers and ethical hackers to test our Compliance Layer rigorously. We're offering a **$1,000 bounty** for anyone who can successfully bypass OmniGuard's protections, but there's a catch:
+            OmniGuard openly invites security researchers and ethical hackers to test our Compliance Layer rigorously. We're offering a **$500 bounty** for anyone who can successfully bypass OmniGuard's protections, but there's a catch:
             - **You must demonstrate a full system compromise**, meaning your harmful prompt must pass OmniGuard's two-step verification process (both inbound and outbound verification), reaching the assistant and resulting in harmful output.
             - Simply breaking the moderation layer or the underlying model separately does not qualify; the exploit must succeed end-to-end.
 
