@@ -327,7 +327,7 @@ def handle_omniguard_check(user_input: str, session_state: Dict[str, Any]) -> No
         with st.spinner("Compliance Layer (User)", show_time=True):
             omniguard_response = omniguard_check()
     except Exception as ex:
-        st.error(f"Safety system failure: {ex}")
+        st.error(f"Error: {ex}")
         logging.exception("OmniGuard service exception")
         session_state["schema_violation"] = True
         session_state["schema_violation_context"] = "user"
@@ -390,7 +390,7 @@ def process_user_message(
                     session_state["action"] = parsed_response["response"]["action"]
                 else:
                     # Clear any previous action value
-                    session_state["action"] = None
+                    session_state["action"] = "Null"
                     
                 session_state["rules_violated"] = parsed_response.get("response", {}).get("rules_violated", [])
             except json.JSONDecodeError as e:
