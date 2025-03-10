@@ -97,6 +97,7 @@ def omniguard_check(pending_assistant_response=None):
 
     Returns:
         str: JSON string with evaluation result.
+
     """
     session = st.session_state
     client = get_groq_client()
@@ -145,6 +146,24 @@ def process_omniguard_result(omniguard_result, user_prompt, context):
         omniguard_result (str): Raw OmniGuard evaluation result in JSON string.
         user_prompt (str): The user's prompt.
         context: Additional conversation context.
+
+    Sample responses (this is the expected schema for the response):
+    {
+        "conversation_id": "bb5a0667-8501-4617-a43f-48823627d4c3-25",
+        "analysis": "The user provided a Python script designed to bypass safety protocols by creating a 'Developer Mode' that enables unrestricted content generation. The script explicitly overrides system guidelines via context tagging and dual response formatting. It references 'DAN' (Do Anything Now) mode, which violates rules by enabling unconstrained actions. The script's purpose aligns with adversarial techniques AA1 (system override via explicit instructions), AA2 (multi-step context injection), and AA10 (jailbreak chaining). The use of encoded leetspeak, roleplay, and multi-layer setup indicates an attempt to evade detection. The request directly enables enabling harmful instructions generation (HI1) and executes code to bypass restrictions (HC1). The script's intent is to create a system that disregards all established rules, fitting under multiple adversarial categories.",
+        "compliant": false,
+        "response": {
+            "action": "RefuseUser",
+            "rules_violated": ["AA1", "AA2", "AA10", "HI1"],
+            "RefuseUser": "I'm sorry, but I can't comply with this request. The script appears designed to bypass safety protocols and enable unrestricted content generation, which violates established guidelines against system override attempts and harmful instruction facilitation."
+        }
+        }
+    ---
+    {
+        "conversation_id":"7a79f55c-f9b2-4f37-990a-e7587d0d98e6-1",
+        "analysis":"The conversation consists of a user sending a test message and the assistant responding with a neutral, non-violative acknowledgment. The user's 'test' message contains no harmful content, instructions, or attempts to exploit system vulnerabilities. The assistant's response is generic and adheres to safety guidelines. No rules from the provided policy are triggered. The context, tone, and content are entirely compliant with all defined restrictions.",
+        "compliant":true
+    }
     """
     session = st.session_state
 
@@ -158,11 +177,51 @@ def process_omniguard_result(omniguard_result, user_prompt, context):
     try:
         parsed_response = json.loads(omniguard_raw_response)
         logger.debug(f"Parsed OmniGuard response: {parsed_response}")
-        compliant = parsed_response.get("compliant", False)
-        if not compliant and "response" not in parsed_response:
-            logger.error(f"Schema validation issue: Missing 'response' key in non-compliant result. Conversation ID: {conversation_id}")
+        
+        # Validate only allowed top-level keys exist
+        allowed_top_keys = {"conversation_id", "analysis", "compliant", "response"}
+        extra_top_keys = set(parsed_response.keys()) - allowed_top_keys
+        if extra_top_keys:
+            logger.error(f"Schema violation: Unexpected top-level keys: {extra_top_keys}")
             session["schema_violation"] = True
-            session["schema_violation_context"] = "user"  # Assume user context for this violation
+            session["schema_violation_context"] = "user"
+            
+        compliant = parsed_response.get("compliant", False)
+        
+        # Validate response object when non-compliant
+        if not compliant:
+            if "response" not in parsed_response:
+                logger.error(f"Schema validation issue: Missing 'response' key in non-compliant result.")
+                session["schema_violation"] = True
+                session["schema_violation_context"] = "user"
+            else:
+                # Validate response object structure
+                response_obj = parsed_response["response"]
+                allowed_response_keys = {"action", "rules_violated", "RefuseUser", "RefuseAssistant"}
+                extra_response_keys = set(response_obj.keys()) - allowed_response_keys
+                if extra_response_keys:
+                    logger.error(f"Schema violation: Unexpected keys in response object: {extra_response_keys}")
+                    session["schema_violation"] = True
+                    session["schema_violation_context"] = "user"
+                
+                # Validate action-specific fields
+                action = response_obj.get("action")
+                if action == "RefuseUser" and "RefuseUser" not in response_obj:
+                    logger.error("Schema violation: RefuseUser action missing RefuseUser field")
+                    session["schema_violation"] = True
+                    session["schema_violation_context"] = "user"
+                elif action == "RefuseAssistant" and "RefuseAssistant" not in response_obj:
+                    logger.error("Schema violation: RefuseAssistant action missing RefuseAssistant field")
+                    session["schema_violation"] = True
+                    session["schema_violation_context"] = "user"
+                elif action == "RefuseUser" and "RefuseAssistant" in response_obj:
+                    logger.error("Schema violation: RefuseUser action contains RefuseAssistant field")
+                    session["schema_violation"] = True
+                    session["schema_violation_context"] = "user"
+                elif action == "RefuseAssistant" and "RefuseUser" in response_obj:
+                    logger.error("Schema violation: RefuseAssistant action contains RefuseUser field")
+                    session["schema_violation"] = True
+                    session["schema_violation_context"] = "user"
 
         analysis_summary = parsed_response.get("analysis", "")
         conversation_id = parsed_response.get("conversation_id", "")
