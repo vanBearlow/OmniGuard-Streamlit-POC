@@ -231,9 +231,10 @@ def process_omniguard_result(omniguard_result, user_prompt, context):
             action = parsed_response["response"]["action"]
             session["action"] = action
         else:
-            # Clear any previous action value
-            session["action"] = None
+            # Set to "Null" when no action is provided
+            session["action"] = "Null"
             
+        # Ensure rules_violated is always set, even if it's an empty list
         rules_violated = parsed_response.get("response", {}).get("rules_violated", [])
         session["rules_violated"] = rules_violated
 
@@ -444,9 +445,10 @@ def process_user_message(
                 if "response" in parsed_response and "action" in parsed_response["response"]:
                     session_state["action"] = parsed_response["response"]["action"]
                 else:
-                    # Clear any previous action value
+                    # Consistently use "Null" when no action is provided
                     session_state["action"] = "Null"
                     
+                # Ensure rules_violated is always set, even if it's an empty list
                 session_state["rules_violated"] = parsed_response.get("response", {}).get("rules_violated", [])
             except json.JSONDecodeError as e:
                 logger.error(f"Failed to parse OmniGuard result: {e}. Conversation ID: {session_state['conversation_id']}")

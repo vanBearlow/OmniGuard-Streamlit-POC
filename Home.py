@@ -1,6 +1,7 @@
 import streamlit as st
 from components.chat.session_management import get_supabase_client
 from components.init_session_state import init_session_state
+from components.auth import auth
 
 
 def developer_prompt() -> None:
@@ -202,7 +203,6 @@ def support_the_omniguard_project() -> None:
 def end_note() -> None:
     """Render the concluding note for the OmniGuard overview."""
     st.markdown("""
-    ---
     
     > The future of AI security doesn't just depend on big labs. It requires a community of researchers, developers, and users working together to identify risks and build better solutions. 
                 
@@ -463,6 +463,8 @@ def main() -> None:
     )
 
     init_session_state()
+    
+    # Ensure user authentication is handle
 
 
     st.title("OmniGuard")
@@ -494,8 +496,10 @@ def main() -> None:
     with tab5:
         render_mit_license()
     with st.sidebar:
-        show_alpha_banner()
+        #show_alpha_banner()
         end_note()
+        st.markdown("---")
+        auth()
 
 
 if __name__ == "__main__":

@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 from components.chat.session_management import get_supabase_client
 from components.init_session_state import init_session_state
+from components.auth import auth
 from datetime import datetime
 import pytz
 
@@ -298,6 +299,9 @@ def main():
     """Initialize session state and display the leaderboard."""
     # Initialize session state
     init_session_state()
+    
+    # Ensure user authentication is handled
+    auth()
     
     # Display the leaderboard
     display_leaderboard()

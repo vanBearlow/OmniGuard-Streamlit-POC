@@ -9,6 +9,7 @@ import streamlit as st
 from components.chat.session_management import get_supabase_client
 from typing import List, Dict, Any
 from components.init_session_state import init_session_state
+from components.auth import auth
 
 st.set_page_config(page_title="Human Review", page_icon="🔍")
 
@@ -196,6 +197,12 @@ def main() -> None:
 
     Checks login status; if not logged in, shows a warning.
     """
+    # Initialize session state
+    init_session_state()
+    
+    # Ensure user authentication is handled
+
+    
     if not st.session_state.get("contributor_id"):
         st.warning("Please log in to access Human Review Dashboard. Visit your [Profile](/profile) for login options.")
         return
@@ -204,7 +211,7 @@ def main() -> None:
         st.markdown("# Human Review Dashboard")
         st.info("Review Interactions Reported as Harmful / Non-Compliant")
         st.markdown("---")
-        st.markdown("Will not be visible to the public. Maybe")
+        auth()
 
     conversations = load_flagged_conversations()
     if not conversations:

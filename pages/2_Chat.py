@@ -44,6 +44,8 @@ def main():
     """
     # Initialize session states
     init_session_state()
+
+    
     init_chat_session_state(update_conversation_context)
     
     # Setup sidebar with session management

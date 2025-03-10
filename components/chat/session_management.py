@@ -188,7 +188,10 @@ def upsert_conversation_turn() -> None:
         "discord": "",
         "linkedin": ""
     }
+    
+    # Log the contributor_id for debugging
     if contributor_id:
+        print(f"Found contributor_id in session state: {contributor_id}")
         try:
             res = (
                 supabase.table("contributors")
@@ -204,9 +207,16 @@ def upsert_conversation_turn() -> None:
                     "discord": res.data.get("discord", ""),
                     "linkedin": res.data.get("linkedin", "")
                 }
+                print(f"Successfully fetched contributor data: {contributor_data}")
+            else:
+                print(f"No contributor data found for ID: {contributor_id}")
         except Exception as e:
             print(f"Error fetching contributor data: {e}")
+            import traceback
+            print(traceback.format_exc())
             # Log error but proceed with empty values
+    else:
+        print("No contributor_id found in session state")
 
     # Build row data with all fields (without conversation)
     row_data = {

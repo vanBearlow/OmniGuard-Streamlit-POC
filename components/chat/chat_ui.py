@@ -7,6 +7,8 @@ displaying messages, debug information, and setting up the sidebar.
 
 import streamlit as st
 from typing import Dict, Any, Protocol, List
+from components.auth import auth
+
 
 # Import session management for upsert_conversation_turn
 from components.chat.session_management import upsert_conversation_turn
@@ -211,6 +213,9 @@ def setup_sidebar(session_state: Dict[str, Any], reset_callback: ResetCallback) 
                     # Display conversation ID in the main UI
 
         # Help section
+        st.markdown("---")
+        auth()
+
         st.markdown("---")
         st.caption("Need Help? Leave Feedback?")
         st.caption("Contact: [brianbellx](https://x.com/brianbellx)")
