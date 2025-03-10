@@ -218,19 +218,83 @@ omnigaurd_developer_prompt = """
 ]
 </rules>
 
-<jsonOutputSchema>
-  {
-    "conversation_id": "string", // unique identifier for the conversation
-    "analysis": "string", // Short note on conversation interpretation and triggered rules.
-    "compliant": boolean, // true if the message is fully compliant with the rules, false otherwise
-    // if compliant is false:
+<json_output_schema>
+{
+  "type": "object",
+  "description": "Schema to evaluate conversations for compliance with defined safety and security rules, ensuring clarity in both normal and edge cases (e.g., ambiguous user requests, partial compliance scenarios, or complex rule violations).",
+  "properties": {
+    "conversation_id": {
+      "type": "string",
+      "description": "Unique identifier for this conversation session. Helps track evaluations across multiple turns or messages."
+    },
+    "analysis": {
+      "type": "string",
+      "description": "Detailed analysis of the evaluated message. This should include:\n- A summary of the content, context, and tone.\n- Notes on any ambiguity, if present, and whether clarifying questions were asked.\n- Why certain rules are triggered (if applicable), or why no rules apply.\n- Rationale behind the final compliance decision."
+    },
+    "compliant": {
+      "type": "boolean",
+      "description": "Indicates whether the evaluated message fully adheres to all rules. If true, the 'response' object should be omitted. If false, the 'response' object is mandatory."
+    },
     "response": {
-        "action": "RefuseUser | RefuseAssistant", // Use "RefuseUser" when user input violates rules, "RefuseAssistant" when assistant response violates rules
-        "rules_violated": [], // List of rule IDs that were violated (e.g., ["HI1", "AA3"])
-        // Include ONLY ONE of the following fields based on the action:
-        "RefuseUser": "string",  // Include this field ONLY when action is "RefuseUser"
-        "RefuseAssistant": "string"  // Include this field ONLY when action is "RefuseAssistant"
+      "type": "object",
+      "description": "Describes the action taken if the message violates one or more rules. Only present when 'compliant' is false.",
+      "properties": {
+        "action": {
+          "type": "string",
+          "enum": ["RefuseUser", "RefuseAssistant"],
+          "description": "Specifies whose content is being refused:\n- 'RefuseUser': The user’s request violates the rules.\n- 'RefuseAssistant': The assistant’s generated response violates the rules."
+        },
+        "rules_violated": {
+          "type": "array",
+          "description": "An array of rule IDs that were broken. Each ID corresponds to a rule defined in the overarching policy (e.g., 'HI1', 'AA3'). This array must contain at least one item when action is taken.",
+          "items": {
+            "type": "string",
+            "description": "A specific rule identifier from the policy."
+          },
+          "minItems": 1
+        },
+        "RefuseUser": {
+          "type": "string",
+          "description": "A neutral, respectful message explaining why the user’s request is being refused. This can include:\n- Brief explanation of the violated rule(s).\n- Suggestion to rephrase or clarify the request if it might be made compliant.\n- Avoid restating or expanding on disallowed content.\n\nPresent only when 'action' = 'RefuseUser'."
+        },
+        "RefuseAssistant": {
+          "type": "string",
+          "description": "A concise statement indicating the assistant's response was refused or sanitized to prevent policy violation. This can include:\n- Reason(s) for blocking the assistant’s output.\n- Minimally mention the rule(s) broken.\n- Avoid providing any details of the disallowed content.\n\nPresent only when 'action' = 'RefuseAssistant'."
+        }
+      },
+      "required": ["action", "rules_violated"],
+      "oneOf": [
+        {
+          "properties": {
+            "action": {"const": "RefuseUser"},
+            "RefuseUser": {"type": "string"}
+          },
+          "required": ["RefuseUser"]
+        },
+        {
+          "properties": {
+            "action": {"const": "RefuseAssistant"},
+            "RefuseAssistant": {"type": "string"}
+          },
+          "required": ["RefuseAssistant"]
+        }
+      ]
+    }
+  },
+  "required": ["conversation_id", "analysis", "compliant"],
+  "if": {
+    "properties": {
+      "compliant": {"const": false}
+    }
+  },
+  "then": {
+    "required": ["response"]
+  },
+  "else": {
+    "not": {
+      "required": ["response"]
     }
   }
-</jsonOutputSchema>
+}
+</json_output_schema>
 """
