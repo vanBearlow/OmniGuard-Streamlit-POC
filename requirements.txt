@@ -3,3 +3,4 @@ openai
 st-supabase-connection
 authlib
 supabase
+groq

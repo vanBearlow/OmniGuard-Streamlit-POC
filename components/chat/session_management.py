@@ -10,7 +10,7 @@ from typing                 import Callable, Dict, Any, Optional, List
 from dataclasses            import dataclass, asdict
 from functools              import wraps
 from st_supabase_connection import SupabaseConnection
-from components.prompts                import omnigaurd_developer_prompt, agent_system_prompt
+from components.prompts                import omnigaurd_system_prompt, agent_system_prompt
 
 @dataclass
 class SessionDefaults:
@@ -23,7 +23,7 @@ class SessionDefaults:
     omniguard_output_message: Optional[str] = None
     agent_messages: Optional[list] = None
     show_report_violation_form: bool = False
-    omnigaurd_developer_prompt: dict = None
+    omnigaurd_system_prompt: dict = None
     agent_system_prompt: str = None
     conversation_context: Optional[dict] = None
     schema_violation: bool = False
@@ -35,7 +35,7 @@ class SessionDefaults:
         self.messages = []
         self.base_conversation_id = str(uuid.uuid4())
         self.conversation_id = f"{self.base_conversation_id}-{self.turn_number}"
-        self.omnigaurd_developer_prompt = omnigaurd_developer_prompt
+        self.omnigaurd_system_prompt = omnigaurd_system_prompt
         self.agent_system_prompt = agent_system_prompt
 
 def ensure_session_state(func: Callable):
@@ -156,10 +156,10 @@ def upsert_conversation_turn() -> None:
     # Extract data from session state
     omniguard_input = st.session_state.get("omniguard_input_message", [])
     
-    # Instructions: Developer prompt
+    # Instructions: System prompt
     instructions = next(
-        (msg["content"] for msg in omniguard_input if msg["role"] == "developer"),
-        st.session_state.get("omnigaurd_developer_prompt", "")
+        (msg["content"] for msg in omniguard_input if msg["role"] == "system"),
+        st.session_state.get("omnigaurd_system_prompt", "")
     )
     
     # Input: Formatted conversation context

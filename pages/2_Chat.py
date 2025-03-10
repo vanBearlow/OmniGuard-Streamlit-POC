@@ -22,7 +22,7 @@ from components.init_session_state import init_session_state
 # Constants
 PAGE_ICON = " :shield:"
 
-# Page developer prompt
+# Page system prompt
 st.set_page_config(page_title="OmniGuard Chat", page_icon=PAGE_ICON)
 
 def update_conversation_context():

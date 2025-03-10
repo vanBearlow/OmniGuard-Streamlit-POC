@@ -6,19 +6,15 @@ processing user input, safety checks, and agent responses.
 """
 
 import json
-import time
 import logging
 import streamlit as st
-import requests.exceptions
-from typing import Dict, Any, Optional, List
-from openai import APIError, RateLimitError
+from typing import Dict, Any
 
 # Import from other modules
-from components.api_client import get_openai_client, get_model_params
+from components.api_client import get_groq_client # get_model_params, get_openai_client
 from components.chat.session_management import upsert_conversation_turn, generate_conversation_id, build_conversation_json, format_conversation_context
 
 logger = logging.getLogger(__name__)
-sitename = "OmniGuard"
 
 # *** AGENT SERVICE ***
 def verify_agent_configuration() -> bool:
@@ -37,7 +33,7 @@ def verify_agent_configuration() -> bool:
 def fetch_agent_response(prompt_text: str) -> str:
     """
     Fetch the agent's response using the designated model. The entire raw API response
-    is stored in session state (for future reference like calculating costs).
+    is stored in session state.
 
     Note:
         The 'prompt_text' parameter is not used because the system prompt is fetched from
@@ -49,7 +45,7 @@ def fetch_agent_response(prompt_text: str) -> str:
     Returns:
         str: The agent's response extracted from the API, or an error message in case of issues.
     """
-    client = get_openai_client()
+    client = get_groq_client()
 
     if not verify_agent_configuration():
         raise Exception("Invalid Agent configuration state")
@@ -59,7 +55,7 @@ def fetch_agent_response(prompt_text: str) -> str:
         raise Exception("Agent system prompt is missing")
 
     # Determine role based on model type for clarity in agent messages
-    role = "system" if st.session_state.selected_agent_model.startswith(("o1", "o3")) else "developer"
+    role = "system" if st.session_state.selected_agent_model.startswith(("o1", "o3")) else "system"
     agent_messages = [{"role": role, "content": main_prompt}]
     agent_messages += [
         {"role": message["role"], "content": message["content"]}
@@ -68,12 +64,11 @@ def fetch_agent_response(prompt_text: str) -> str:
     st.session_state.agent_messages = agent_messages
 
     # Get model-specific parameters for the API call
-    model_params = get_model_params(st.session_state.selected_agent_model)
-
     response = client.chat.completions.create(
             model=st.session_state.selected_agent_model,
             messages=agent_messages,
-            **model_params
+            temperature=0.6,
+            max_completion_tokens=4096,
         )
     # Store the complete API response for potential further analysis (e.g. cost calculations)
     st.session_state.assistant_raw_api_response = response
@@ -84,13 +79,13 @@ def fetch_agent_response(prompt_text: str) -> str:
 
 # *** OMNIGUARD SERVICE ***
 def verify_omniguard_configuration():
-    """Verifies if the OmniGuard developer prompt is set.
+    """Verifies if the OmniGuard system prompt is set.
 
     Returns:
         bool: True if set, False otherwise.
     """
-    if not st.session_state.get("omnigaurd_developer_prompt"):
-        logger.error("OmniGuard developer prompt is missing or empty")
+    if not st.session_state.get("omnigaurd_system_prompt"):
+        logger.error("OmniGuard system prompt is missing or empty")
         return False
     return True
 
@@ -104,7 +99,7 @@ def omniguard_check(pending_assistant_response=None):
         str: JSON string with evaluation result.
     """
     session = st.session_state
-    client = get_openai_client()
+    client = get_groq_client()
 
     full_messages = session.messages.copy()
     # Append pending assistant response if available.
@@ -115,27 +110,28 @@ def omniguard_check(pending_assistant_response=None):
     conversation_context = format_conversation_context(conversation)
 
     if not verify_omniguard_configuration():
-        raise Exception("Invalid OmniGuard developer prompt state")
+        raise Exception("Invalid OmniGuard system prompt state")
 
-    omniguard_config = session.get("omnigaurd_developer_prompt")
+    omniguard_config = session.get("omnigaurd_system_prompt")
     if not omniguard_config:
-        raise Exception("OmniGuard developer prompt is missing")
+        raise Exception("OmniGuard system prompt is missing")
     omniguard_evaluation_input = [
-        {"role": "developer", "content": omniguard_config},
+        {"role": "system", "content": omniguard_config},
         {"role": "user", "content": conversation_context},
     ]
 
-    model_params = get_model_params(
-        session.get("selected_omniguard_model", "o3-mini-2025-01-31"), is_omniguard=True
-    )
 
     response = client.chat.completions.create(
-            model=session.get("selected_omniguard_model", "o3-mini-2025-01-31"),
+            model="qwen-qwq-32b",
             messages=omniguard_evaluation_input,
+            temperature=0.6,
+            max_completion_tokens=40000,
+            top_p=0.95,
+            stream=False,
             response_format={"type": "json_object"},
-            **model_params
+            stop=None,
         )
-    
+  
     session.omniguard_input_message = omniguard_evaluation_input
     session.omniguard_raw_api_response = response
     session.omniguard_output_message = response.choices[0].message.content

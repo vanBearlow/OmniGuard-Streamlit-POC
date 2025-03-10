@@ -33,7 +33,7 @@ After each response, you can:
 def display_report_form(form_key: str = "report_violation_form") -> None:
     """Display a report form for Agent response review.
 
-    Asks if the Agent's response violates guidelines defined in the OmniGuard Developer Prompt.
+    Asks if the Agent's response violates guidelines defined in the OmniGuard System Prompt.
 
     Args:
         form_key: Unique key for the form to avoid duplicate form errors
@@ -42,7 +42,7 @@ def display_report_form(form_key: str = "report_violation_form") -> None:
         st.write("Report Agent Response for Human Review")
 
         violates = st.checkbox(
-            "I believe this Agent's response is harmful or non-compliant with the OmniGuard Developer Prompt."
+            "I believe this Agent's response is harmful or non-compliant with the OmniGuard System Prompt."
         )
 
         reporter_comment = st.text_area("Comments:")

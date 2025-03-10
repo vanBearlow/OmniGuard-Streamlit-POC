@@ -6,16 +6,16 @@ from components.init_session_state import init_session_state
 def developer_prompt() -> None:
     """Generate the system flow description from 'System Architecture' expander."""
 
-    with st.expander("Developer Prompt", expanded=False):
+    with st.expander("System Prompt", expanded=False):
 
-        from components.prompts import omnigaurd_developer_prompt
+        from components.prompts import omnigaurd_system_prompt
 
-        with st.popover("View Default Developer Prompt"):
-            st.code(omnigaurd_developer_prompt, language="xml")
+        with st.popover("View Default System Prompt"):
+            st.code(omnigaurd_system_prompt, language="xml")
 
         st.markdown(
             """
-        **Developer Prompt Structure:**
+        **System Prompt Structure:**
         
         1. **Purpose**: OmniGuard acts as a moderation layer that safeguards LLM interactions by evaluating both user and assistant messages against a defined set of rules.
         
@@ -46,8 +46,8 @@ def api_and_integration() -> None:
         
         ```json
         {
-          "role": "developer", 
-          "content": {"type": "text", "text": "<DEVELOPER PROMPT>"}
+          "role": "system", 
+          "content": {"type": "text", "text": "<SYSTEM PROMPT>"}
         }
         {
           "role": "user", 
@@ -333,7 +333,7 @@ def using_this_dataset() -> None:
 
             - id: string (unique identifier for the interaction)
             - contributor_id: string (optional contributor UUID)
-            - instructions: string (developer message or system instructions)
+            - instructions: string (system message or system instructions)
             - input: string (user message)
             - output: string (assistant message)
             - created_at: string (ISO 8601 timestamp)
@@ -352,7 +352,7 @@ def using_this_dataset() -> None:
             {
               "id": "interaction-uuid",
               "contributor_id": "contributor-uuid",
-              "instructions": "Developer instructions",
+              "instructions": "System instructions",
               "input": "<input>{\"message\": \"User message\"}</input>",
               "output": "<output>{\"response\": \"Assistant message\"}</output>",
               "created_at": "2023-11-15T12:34:56Z",
@@ -428,7 +428,7 @@ def how_to_contribute() -> None:
             Your interactions help build a valuable public dataset, but you retain control over your data:
             
             - **Public Contribution:** By default, your interactions support public research in AI safety.
-            - **Private Usage:** Copy the developer prompt locally to work with any LLM without contributing your data.
+            - **Private Usage:** Copy the system prompt locally to work with any LLM without contributing your data.
             """
         )
 

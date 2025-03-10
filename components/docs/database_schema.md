@@ -41,7 +41,7 @@ The `interactions` table stores information about user interactions and conversa
 | schema_violation | boolean | boolean | Flag indicating whether the interaction violates the schema rules |
 | action | public."Action" | string | Action taken or to be taken for this interaction |
 | rules_violated | text[] | array | Array of rules that were violated in this interaction |
-| instructions | text | string | Developer Message |
+| instructions | text | string | System Message |
 | input | text | string | User Message |
 | output | text | string | Assistant Message |
 
@@ -64,7 +64,7 @@ The `interactions` table stores information about user interactions and conversa
 2. The `interactions` table includes social media fields (name, x, discord, linkedin) which might be denormalized data from the contributors table or could be used for interactions from users who aren't registered contributors.
 3. The `donations` table mentioned in the code was not found in the actual schema. It might be planned for future implementation or accessed through a different method.
 4. Both tables use timestamps for tracking creation and modification times, with the `interactions` table using timezone-aware timestamps.
-5. The `interactions` table now includes fields for storing conversation data: `instructions` (Developer Message), `input` (User Message), and `output` (Assistant Message).
+5. The `interactions` table now includes fields for storing conversation data: `instructions` (System Message), `input` (User Message), and `output` (Assistant Message).
 6. The `rules_violated` field stores an array of text values indicating which rules were violated in an interaction.
 7. The `action` field uses a custom enum type `public."Action"` to specify actions taken for an interaction.
 
